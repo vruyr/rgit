@@ -26,6 +26,7 @@ class Status(object):
 		self._shellify_paths = opts.shell
 
 		#TODO add an optional command line parameter to signify the folder from which status should be shown
+		#TODO Implement remote reference, configuration, and hook checking.
 
 		#TODO fix the config
 		config_path_dir = pathlib.Path(config["path"]).absolute().parent
