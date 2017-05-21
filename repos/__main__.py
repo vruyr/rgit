@@ -15,4 +15,4 @@ if __name__ == "__main__":
 	try:
 		sys.exit(_smain(sys.argv[1:]))
 	except KeyboardInterrupt:
-		print(file=sys.stderr)
+		sys.stderr.write("\n")

@@ -13,7 +13,9 @@ async def load():
 	if not os.path.exists(settings_file_path):
 		return None
 	with open(settings_file_path, "r") as fo:
-		return json.load(fo)
+		config = json.load(fo)
+	config["path"] = settings_file_path
+	return config
 
 
 async def save(opts, config):

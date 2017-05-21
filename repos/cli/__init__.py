@@ -9,7 +9,8 @@ async def main(args, *, loop=None):
 	handler = registry.get_command_handler(opts.command)
 	if handler is None:
 		print("external commands are not supported yet")
-	await handler.execute(config)
+	handler_instance = handler()
+	await handler_instance.execute(opts=opts, config=config)
 
 
 def _parse_args(args=None):
@@ -32,16 +33,6 @@ def _parse_args(args=None):
 			help=handler.short_description()
 		))
 
-	parser_help = subparsers.add_parser(
-		"help",
-		aliases=[],
-		help="show help and exit",
-	)
-
 	opts = parser.parse_args(args)
-
-	if opts.command is None:
-		#TODO This is not a good solution
-		parser.parse_args(["--help"])
 
 	return opts
