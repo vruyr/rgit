@@ -39,6 +39,7 @@ class Status(object):
 		header_row = result[0]
 
 		for repo in repositories:
+			add_status_msg(".")
 			p = await asyncio.create_subprocess_exec("git", "-C", os.fspath(repo), "rev-parse", "--is-bare-repository", stdout=subprocess.PIPE)
 			stdout, stderr = await p.communicate()
 			assert p.returncode == 0
@@ -72,7 +73,6 @@ class Status(object):
 					row.append("")
 				row[column_index] = statistics[column_name]
 			result.append(row)
-			add_status_msg(".")
 
 		set_status_msg(None)
 
