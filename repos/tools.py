@@ -1,6 +1,10 @@
 import functools
 import sys
 
+
+#TODO Consider moving this to a separate python package (can be named termtools).
+
+
 box_with_header = [
 	[
 		"┏━┳┓",
@@ -74,7 +78,7 @@ def draw_line(fo, template, columns, cell_filter):
 	:param fo: file object to write to
 	:param template: box drawing template line
 	:param columns: sequence of 3-tuples - value, width, fill
-	:return: None 
+	:return: None
 	"""
 	fo.write(template[0])
 	fo.write(template[2].join(
