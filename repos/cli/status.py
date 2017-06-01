@@ -97,12 +97,18 @@ class Status(object):
 	def _decorate_path_for_output(self, path):
 		if self._shellify_paths:
 			if shlex.quote(str(path)) == str(path):
-				repo_parts = list(path.parts)
-				if repo_parts[:len(self._home_parts)] == self._home_parts:
-					repo_parts[:len(self._home_parts)] = "~"
-					path = pathlib.Path(*repo_parts)
+				path = self.abbreviate_path_for_shell(path)
+			elif shlex.quote(str(path).replace(" ", "")) == str(path).replace(" ", ""):
+				path = self.abbreviate_path_for_shell(pathlib.Path(str(path).replace(" ", "\\ ")))
 			else:
 				path = shlex.quote(str(path))
+		return path
+
+	def abbreviate_path_for_shell(self, path):
+		path_parts = list(path.parts)
+		if path_parts[:len(self._home_parts)] == self._home_parts:
+			path_parts[:len(self._home_parts)] = "~"
+			path = pathlib.Path(*path_parts)
 		return path
 
 
