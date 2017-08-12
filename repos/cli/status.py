@@ -34,14 +34,20 @@ class Status(object):
 		repositories = list(config_path_dir / repo for repo in config["repositories"])
 
 		status_table = [
-			["#", "Repository Path"] # TODO Implement a column sorting mechanism and remove this.
+			# TODO Implement a column sorting mechanism and remove this.
+			["#", "Repository Path", "Out"]
 		]
 		column_names = status_table[0]
 
 		for repo in repositories:
 			add_status_msg(".")
-			statistics = await self.get_repo_status_stats(repo)
-			row = await self.render_status_statistics_row(column_names, statistics)
+			statistics = collections.defaultdict(int)
+			await self.get_repo_status_stats(repo, statistics)
+			await self.get_repo_commit_statistics(repo, statistics)
+			if not statistics.keys():
+				continue
+			statistics["Repository Path"] = str(self._decorate_path_for_output(repo))
+			row = await self.render_statistics_row(column_names, statistics)
 			if row is not None:
 				status_table.append(row)
 
@@ -61,9 +67,7 @@ class Status(object):
 			return str(value).ljust(width, fill)
 		return str(value).rjust(width, fill)
 
-	async def render_status_statistics_row(self, column_names, statistics):
-		if statistics is None:
-			return None
+	async def render_statistics_row(self, column_names, statistics):
 		row = [""] * len(column_names)
 		for column_name in sorted(statistics.keys()):
 			if column_name in column_names:
@@ -76,14 +80,12 @@ class Status(object):
 			row[column_index] = statistics[column_name]
 		return row
 
-	async def get_repo_status_stats(self, repo):
+	async def get_repo_status_stats(self, repo, statistics):
 		if await self.is_repo_bare(repo):
-			return None
-		stdout = await self.git("-C", os.fspath(repo), "status", "--porcelain")
+			return
+		stdout = await self.git(repo, "status", "--porcelain")
 		if not stdout:
-			return None
-		statistics = collections.defaultdict(int)
-		statistics["Repository Path"] = str(self._decorate_path_for_output(repo))
+			return
 		for line in stdout.splitlines():
 			status = None
 			m = re.match(self._status_line_pattern, line)
@@ -92,15 +94,74 @@ class Status(object):
 			worktree = "•" if worktree == " " else worktree
 			status = f"{index}{worktree}"
 			statistics[status] += 1
-		return statistics
+
+	async def get_repo_commit_statistics(self, repo, statistics, *, without_remotes=False, even_bare=False):
+		local_revs = set()
+		remote_revs = set()
+
+		for ref_str in (await self.git(repo, "show-ref")).splitlines():
+			object_id, ref_name = ref_str.split(" ", maxsplit=1)
+			ref = list(pathlib.PurePosixPath(ref_name).parts)
+
+			assert ref[0] == "refs"
+
+			if ref[1] == "heads":
+				local_revs.add(object_id)
+			elif ref[1] == "remotes":
+				remote_revs.add(object_id)
+			elif ref[1] in ("tags",):
+				# TODO Implement tag support
+				pass
+			else:
+				raise ValueError(f"Unrecognized Reference {ref_name}")
+
+		if not remote_revs:
+			if without_remotes and (even_bare or not (await self.is_repo_bare(repo))):
+				statistics["Out"] = " - "
+		else:
+			revs = [*local_revs, *map(lambda x: f"^{x}", remote_revs)]
+			count = len((await self.git(repo, "rev-list", *revs)).splitlines())
+			if count:
+				statistics["Out"] = count
+
+			# TODO As a temporary measure, showing all the commits not present in any of the remotes
+			#      will give some useful info, but that is not a correct representation of the
+			#      situation. Instead, for each local branch (refs/heads/*) a corresponding tracking
+			#      branches (@{upstream}, @{push}) should be inspected. If a local branch does not
+			#      have a tracking remote branch, the closes point towards the first commit
+			#      available in any remote should be considered and outstanding commits reported as
+			#      outgoing. If the repository have a remote but have no local branches tracking any
+			#      of the branches of that remote, it is effectively the same as not having that
+			#      remote.
+
+	async def get_tracking_branches(self, repo, branch):
+		try:
+			upstream = await self.git(repo, "rev-parse", "--symbolic-full-name", branch + "@{upstream}")
+			upstream = upstream.strip()
+		except:
+			upstream = None
+		try:
+			push = await self.git(repo, "rev-parse", "--symbolic-full-name", branch + "@{push}")
+			push = push.strip()
+		except:
+			push = None
+		return (upstream, push)
 
 	async def is_repo_bare(self, repo):
-		stdout = await self.git("-C", os.fspath(repo), "rev-parse", "--is-bare-repository")
+		stdout = await self.git(repo, "rev-parse", "--is-bare-repository")
 		return {"true": True, "false": False}[stdout.strip()]
 
 	@staticmethod
-	async def git(*args):
-		p = await asyncio.create_subprocess_exec("git", *args, stdout=subprocess.PIPE)
+	async def git(repo, *args):
+		p = await asyncio.create_subprocess_exec(
+			"git", "-C", os.fspath(repo), *args,
+			stdout=subprocess.PIPE,
+			stderr=subprocess.PIPE,
+			stdin=subprocess.DEVNULL,
+			env=update_env(
+				GIT_TERMINAL_PROMPT="0"
+			)
+		)
 		stdout, stderr = await p.communicate()
 		assert p.returncode == 0
 		assert not stderr
@@ -126,6 +187,13 @@ class Status(object):
 			path_parts[:len(self._home_parts)] = "~"
 			path = pathlib.Path(*path_parts)
 		return path
+
+
+def update_env(*args, **kwargs):
+	new_env = dict(os.environ.items())
+	new_env.update(args)
+	new_env.update(kwargs.items())
+	return new_env
 
 
 @command("add")
