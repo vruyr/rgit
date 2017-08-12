@@ -2,7 +2,7 @@ import functools
 import sys
 
 
-#TODO Consider moving this to a separate python package (can be named termtools).
+# TODO Consider moving this to a separate python package (can be named termtools).
 
 
 box_with_header = [
@@ -31,7 +31,10 @@ def cell_filter_ljust(*, row, column, value, width, fill):
 	return str(value).ljust(width, fill)
 
 
-def draw_table(rows, *, fo, box=box_with_header, has_header=False, cell_filter=cell_filter_ljust):
+def draw_table(
+	rows, *, fo, box=box_with_header, has_header=False, cell_filter=cell_filter_ljust,
+	draw_separators_between_lines=False
+):
 	widths = []
 	for r, row in enumerate(rows):
 		widths.extend([0] * (len(row) - len(widths)))
@@ -58,7 +61,7 @@ def draw_table(rows, *, fo, box=box_with_header, has_header=False, cell_filter=c
 			((value, widths[i], " ") for i, value in enumerate(row)),
 			functools.partial(cell_filter, row=r)
 		)
-		template_row = 5 if False else None
+		template_row = 5 if draw_separators_between_lines else None
 		if r == len(rows) - 1:
 			template_row = 6
 		elif r == 0 and has_header:
@@ -78,6 +81,7 @@ def draw_line(fo, template, columns, cell_filter):
 	:param fo: file object to write to
 	:param template: box drawing template line
 	:param columns: sequence of 3-tuples - value, width, fill
+	:param cell_filter: function
 	:return: None
 	"""
 	fo.write(template[0])

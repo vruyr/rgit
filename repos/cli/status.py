@@ -25,70 +25,86 @@ class Status(object):
 	async def execute(self, *, opts, config):
 		self._shellify_paths = opts.shell
 
-		#TODO add an optional command line parameter to signify the folder from which status should be shown
-		#TODO Implement remotes, configuration, and hook checking.
-		#TODO Implement submodule checking (local vs remote commit, detached head, ...)
+		# TODO Add an optional command line parameter for folder from which status should be shown
+		# TODO Implement remotes, configuration, and hook checking.
+		# TODO Implement submodule checking (local vs remote commit, detached head, ...)
 
-		#TODO fix the config
+		# TODO fix the config
 		config_path_dir = pathlib.Path(config["path"]).absolute().parent
 		repositories = list(config_path_dir / repo for repo in config["repositories"])
 
-		result = [
-			["#", "Repository Path"] #TODO Implement a column sorting mechanism and remove this.
+		status_table = [
+			["#", "Repository Path"] # TODO Implement a column sorting mechanism and remove this.
 		]
-		header_row = result[0]
+		column_names = status_table[0]
 
 		for repo in repositories:
 			add_status_msg(".")
-			p = await asyncio.create_subprocess_exec("git", "-C", os.fspath(repo), "rev-parse", "--is-bare-repository", stdout=subprocess.PIPE)
-			stdout, stderr = await p.communicate()
-			assert p.returncode == 0
-			assert not stderr
-			if stdout.decode().strip() != "false":
-				continue
-			p = await asyncio.create_subprocess_exec("git", "-C", os.fspath(repo), "status", "--porcelain", stdout=subprocess.PIPE)
-			stdout, stderr = await p.communicate()
-			assert p.returncode == 0
-			assert not stderr
-			if not stdout:
-				continue
-			statistics = collections.defaultdict(int)
-			statistics["Repository Path"] = str(self._decorate_path_for_output(repo))
-			for line in stdout.decode().splitlines():
-				status = None
-				index, worktree, filepath, renamed_to = re.match(self._status_line_pattern, line).groups()
-				index = "•" if index == " " else index
-				worktree = "•" if worktree == " " else worktree
-				status = f"{index}{worktree}"
-				statistics[status] += 1
-
-			row = [""] * len(header_row)
-			for column_name in sorted(statistics.keys()):
-				if column_name in header_row:
-					column_index = header_row.index(column_name)
-				else:
-					header_row.append(column_name)
-					column_index = len(header_row) - 1
-				while len(row) <= column_index:
-					row.append("")
-				row[column_index] = statistics[column_name]
-			result.append(row)
+			statistics = await self.get_repo_status_stats(repo)
+			row = await self.render_status_statistics_row(column_names, statistics)
+			if row is not None:
+				status_table.append(row)
 
 		set_status_msg(None)
 
-		num_index = header_row.index("#")
-		for r, row in enumerate(result):
+		num_index = column_names.index("#")
+		for r, row in enumerate(status_table):
 			if r == 0:
 				continue
 			row[num_index] = r
 
-		def cell_filter(*, row, column, value, width, fill):
-			if row == 0 or column == 1:
-				return str(value).ljust(width, fill)
-			else:
-				return str(value).rjust(width, fill)
+		draw_table(status_table, fo=sys.stdout, has_header=True, cell_filter=self.cell_filter)
 
-		draw_table(result, fo=sys.stdout, has_header=True, cell_filter=cell_filter)
+	@staticmethod
+	def cell_filter(*, row, column, value, width, fill):
+		if row == 0 or column == 1:
+			return str(value).ljust(width, fill)
+		return str(value).rjust(width, fill)
+
+	async def render_status_statistics_row(self, column_names, statistics):
+		if statistics is None:
+			return None
+		row = [""] * len(column_names)
+		for column_name in sorted(statistics.keys()):
+			if column_name in column_names:
+				column_index = column_names.index(column_name)
+			else:
+				column_names.append(column_name)
+				column_index = len(column_names) - 1
+			while len(row) <= column_index:
+				row.append("")
+			row[column_index] = statistics[column_name]
+		return row
+
+	async def get_repo_status_stats(self, repo):
+		if await self.is_repo_bare(repo):
+			return None
+		stdout = await self.git("-C", os.fspath(repo), "status", "--porcelain")
+		if not stdout:
+			return None
+		statistics = collections.defaultdict(int)
+		statistics["Repository Path"] = str(self._decorate_path_for_output(repo))
+		for line in stdout.splitlines():
+			status = None
+			m = re.match(self._status_line_pattern, line)
+			index, worktree, dummy_filepath, dummy_renamed_to = m.groups()
+			index = "•" if index == " " else index
+			worktree = "•" if worktree == " " else worktree
+			status = f"{index}{worktree}"
+			statistics[status] += 1
+		return statistics
+
+	async def is_repo_bare(self, repo):
+		stdout = await self.git("-C", os.fspath(repo), "rev-parse", "--is-bare-repository")
+		return {"true": True, "false": False}[stdout.strip()]
+
+	@staticmethod
+	async def git(*args):
+		p = await asyncio.create_subprocess_exec("git", *args, stdout=subprocess.PIPE)
+		stdout, stderr = await p.communicate()
+		assert p.returncode == 0
+		assert not stderr
+		return stdout.decode()
 
 	_status_line_pattern = re.compile(r"^([ MADRCU?!])([ MADRCU?!]) (.*?)(?: -> (.*?))?$")
 
@@ -178,4 +194,3 @@ class Foreach(object):
 
 	async def execute(self, *, opts, config):
 		pass
-

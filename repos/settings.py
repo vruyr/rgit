@@ -2,7 +2,7 @@ import os, json
 from . import constants
 
 
-#TODO Respect the options.
+# TODO Respect the options.
 settings_file_path = os.path.join(
 	os.path.expanduser("~"),
 	"." + constants.SELF_NAME + ".json"

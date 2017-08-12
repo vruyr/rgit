@@ -3,7 +3,6 @@ _command_handlers = {}
 
 def command(*names):
 	def decorator(handler):
-		global _command_handlers
 		name = names[0]
 		if name in _command_handlers:
 			raise ValueError("command already registered")
@@ -13,7 +12,6 @@ def command(*names):
 
 
 def enumerate_command_handlers():
-	global _command_handlers
 	for name, (aliases, handler) in _command_handlers.items():
 		yield (name, aliases, handler)
 

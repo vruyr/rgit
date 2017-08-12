@@ -1,0 +1,6 @@
+[MESSAGES CONTROL]
+disable=multiple-imports,missing-docstring,bad-continuation,invalid-name,consider-using-ternary
+
+[FORMAT]
+indent-string = "\t"
+indent-after-paren = 1

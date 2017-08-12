@@ -25,15 +25,20 @@ class Scan(object):
 		pass
 
 	async def execute(self, *, opts, config):
-		#TODO Implement finding repositories in working copies of other repositories but are not submodules.
-		#TODO fix the config
+		# TODO Implement finding repositories in working copies of other repositories
+		#      but are not submodules.
+		# TODO Fix the config
 		config_path_dir = pathlib.Path(config["path"]).absolute().parent
 		repositories = set(config_path_dir / repo for repo in config["repositories"])
 		counter = 0
-		#TODO walk all the folders, not just the first one
+		# TODO walk all the folders, not just the first one
 		assert len(opts.starting_folders) == 1
 		for root, dirs, files in os.walk(opts.starting_folders[0], topdown=True):
-			if ".git" in dirs or ".git" in files or ("refs" in dirs and "objects" in dirs and "HEAD" in files):
+			if (
+				".git" in dirs or
+				".git" in files or
+				("refs" in dirs and "objects" in dirs and "HEAD" in files)
+			):
 				del dirs[:]
 				if pathlib.Path(root) not in repositories:
 					set_status_msg(None)
@@ -48,5 +53,3 @@ class Scan(object):
 
 	async def report_new_repo(self, path):
 		sys.stdout.write(path + "\n")
-
-
