@@ -132,7 +132,9 @@ class Status(object):
 			#      available in any remote should be considered and outstanding commits reported as
 			#      outgoing. If the repository have a remote but have no local branches tracking any
 			#      of the branches of that remote, it is effectively the same as not having that
-			#      remote.
+			#      remote. Support for config remote.<name>.mirror should also be implemented. Or
+			#      maybe if there is a way to do dry-run push and observe what would go out, that
+			#      would be a better option.
 
 	async def get_tracking_branches(self, repo, branch):
 		try:
