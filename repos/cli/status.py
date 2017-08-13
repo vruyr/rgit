@@ -175,6 +175,10 @@ class Status(object):
 
 	def _decorate_path_for_output(self, path):
 		if self._shellify_paths:
+			try:
+				path = path.relative_to(pathlib.Path.cwd())
+			except:
+				pass
 			if shlex.quote(str(path)) == str(path):
 				path = self.abbreviate_path_for_shell(path)
 			elif shlex.quote(str(path).replace(" ", "")) == str(path).replace(" ", ""):
