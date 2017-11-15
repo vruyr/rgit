@@ -25,8 +25,10 @@ class Scan(object):
 		pass
 
 	async def execute(self, *, opts, config):
-		# TODO Implement finding repositories in working copies of other repositories
-		#      but are not submodules.
+		# TODO Implement finding repositories in working copies of other repositories without proper
+		#      submodule references. Also implement outgoing commits and local modifications
+		#      detection in submodules. Also commits in submodules committed to super-repo but not
+		#      yet pushed in the submodule.
 		# TODO Fix the config
 		config_path_dir = pathlib.Path(config["path"]).absolute().parent
 		repositories = set(config_path_dir / repo for repo in config["repositories"])
