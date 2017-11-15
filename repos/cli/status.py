@@ -43,7 +43,7 @@ class Status(object):
 			add_status_msg(".")
 			statistics = collections.defaultdict(int)
 			await self.get_repo_status_stats(repo, statistics)
-			await self.get_repo_commit_statistics(repo, statistics)
+			await self.get_repo_commit_statistics(repo, statistics, without_remotes=True)
 			if not statistics.keys():
 				continue
 			statistics["Repository Path"] = self._decorate_path_for_output(repo)
