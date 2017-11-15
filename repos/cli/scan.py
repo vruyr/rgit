@@ -53,3 +53,4 @@ class Scan(object):
 
 	async def report_new_repo(self, path):
 		sys.stdout.write(path + "\n")
+		sys.stdout.flush()
