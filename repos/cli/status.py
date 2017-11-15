@@ -46,7 +46,7 @@ class Status(object):
 			await self.get_repo_commit_statistics(repo, statistics)
 			if not statistics.keys():
 				continue
-			statistics["Repository Path"] = str(self._decorate_path_for_output(repo))
+			statistics["Repository Path"] = self._decorate_path_for_output(repo)
 			row = await self.render_statistics_row(column_names, statistics)
 			if row is not None:
 				status_table.append(row)
@@ -109,8 +109,8 @@ class Status(object):
 				local_revs.add(object_id)
 			elif ref[1] == "remotes":
 				remote_revs.add(object_id)
-			elif ref[1] in ("tags",):
-				# TODO Implement tag support
+			elif ref[1] in ("tags", "notes"):
+				# TODO Implement tag and notes support
 				pass
 			else:
 				raise ValueError(f"Unrecognized Reference {ref_name}")
@@ -169,7 +169,7 @@ class Status(object):
 		assert not stderr, (p.returncode, stderr)
 		return stdout.decode()
 
-	_status_line_pattern = re.compile(r"^([ MADRCU?!])([ MADRCU?!]) (.*?)(?: -> (.*?))?$")
+	_status_line_pattern = re.compile(r"^([ MADRCUT?!])([ MADRCUT?!]) (.*?)(?: -> (.*?))?$")
 
 	_home_parts = list(pathlib.Path.home().parts)
 
@@ -179,13 +179,17 @@ class Status(object):
 				path = path.relative_to(pathlib.Path.cwd())
 			except:
 				pass
-			if shlex.quote(str(path)) == str(path):
+			path_str = os.fspath(path)
+			path_str = path_str.replace("\\", "/")
+			if shlex.quote(path_str) == path_str:
 				path = self.abbreviate_path_for_shell(path)
-			elif shlex.quote(str(path).replace(" ", "")) == str(path).replace(" ", ""):
-				path = self.abbreviate_path_for_shell(pathlib.Path(str(path).replace(" ", "\\ ")))
+			elif shlex.quote(path_str.replace(" ", "")) == path_str.replace(" ", ""):
+				path = self.abbreviate_path_for_shell(pathlib.Path(path_str.replace(" ", "\\ ")))
 			else:
-				path = shlex.quote(str(path))
-		return path
+				path = shlex.quote(path_str)
+		else:
+			path_str = os.fspath(path)
+		return path_str
 
 	def abbreviate_path_for_shell(self, path):
 		path_parts = list(path.parts)
