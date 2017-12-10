@@ -166,7 +166,7 @@ class Status(object):
 		)
 		stdout, stderr = await p.communicate()
 		assert p.returncode == 0, (p.returncode, stderr)
-		assert not stderr, (p.returncode, stderr)
+		assert not stderr, (repo, p.returncode, stderr)
 		return stdout.decode()
 
 	_status_line_pattern = re.compile(r"^([ MADRCUT?!])([ MADRCUT?!]) (.*?)(?: -> (.*?))?$")
