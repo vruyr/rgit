@@ -7,10 +7,11 @@ async def main(args, *, loop=None):
 	opts = _parse_args(args=args)
 	config = await settings.load()
 	handler = registry.get_command_handler(opts.command)
-	if handler is None:
+	if handler is not None:
+		handler_instance = handler()
+		await handler_instance.execute(opts=opts, config=config)
+	else:
 		print("external commands are not supported yet")
-	handler_instance = handler()
-	await handler_instance.execute(opts=opts, config=config)
 
 
 def _parse_args(args=None):
