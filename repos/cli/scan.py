@@ -29,9 +29,7 @@ class Scan(object):
 		#      submodule references. Also implement outgoing commits and local modifications
 		#      detection in submodules. Also commits in submodules committed to super-repo but not
 		#      yet pushed in the submodule.
-		# TODO Fix the config
-		config_path_dir = pathlib.Path(config["path"]).absolute().parent
-		repositories = set(config_path_dir / repo for repo in config["repositories"])
+		repositories = set(config.repositories)
 		counter = 0
 		# TODO walk all the folders, not just the first one
 		assert len(opts.starting_folders) == 1

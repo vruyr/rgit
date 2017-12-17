@@ -1,11 +1,14 @@
-import argparse
+import argparse, pathlib
 from .. import configuration, constants
 from . import registry, scan, status
 
 
 async def main(args, *, loop=None):
 	opts = _parse_args(args=args)
-	config = await configuration.load()
+	# TODO Make config file path configurable with cli parameters.
+	config = await configuration.load(
+		config_file_path=(pathlib.Path.home() / ("." + constants.SELF_NAME + ".json"))
+	)
 	handler = registry.get_command_handler(opts.command)
 	if handler is not None:
 		handler_instance = handler()

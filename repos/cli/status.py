@@ -20,18 +20,16 @@ class Status(object):
 		return "display statuses for all repositories"
 
 	def __init__(self):
+		self._config = None
 		self._shellify_paths = False
 
 	async def execute(self, *, opts, config):
+		self._config = config
 		self._shellify_paths = opts.shell
 
 		# TODO Add an optional command line parameter for folder from which status should be shown
 		# TODO Implement remotes, configuration, and hook checking.
 		# TODO Implement submodule checking (local vs remote commit, detached head, ...)
-
-		# TODO fix the config
-		config_path_dir = pathlib.Path(config["path"]).absolute().parent
-		repositories = list(config_path_dir / repo for repo in config["repositories"])
 
 		status_table = [
 			# TODO Implement a column sorting mechanism and remove this.
@@ -39,7 +37,7 @@ class Status(object):
 		]
 		column_names = status_table[0]
 
-		for repo in repositories:
+		for repo in self._config.repositories:
 			add_status_msg(".")
 			statistics = collections.defaultdict(int)
 			await self.get_repo_status_stats(repo, statistics)
@@ -95,7 +93,9 @@ class Status(object):
 			status = f"{index}{worktree}"
 			statistics[status] += 1
 
-	async def get_repo_commit_statistics(self, repo, statistics, *, without_remotes=False, even_bare=False):
+	async def get_repo_commit_statistics(
+		self, repo, statistics, *, without_remotes=False, even_bare=False
+	):
 		local_revs = set()
 		remote_revs = set()
 
@@ -177,7 +177,7 @@ class Status(object):
 		if self._shellify_paths:
 			try:
 				path = path.relative_to(pathlib.Path.cwd())
-			except:
+			except ValueError:
 				pass
 			path_str = os.fspath(path)
 			path_str = path_str.replace("\\", "/")
