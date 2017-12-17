@@ -5,10 +5,10 @@ from . import registry, scan, status
 
 async def main(args, *, loop=None):
 	opts = _parse_args(args=args)
-	# TODO Make config file path configurable with cli parameters.
-	config = await configuration.load(
-		config_file_path=(pathlib.Path.home() / ("." + constants.SELF_NAME + ".json"))
-	)
+	config_path = opts.config_path
+	if config_path is None:
+		config_path = (pathlib.Path.home() / ("." + constants.SELF_NAME + ".json"))
+	config = await configuration.load(config_file_path=pathlib.Path(config_path))
 	handler = registry.get_command_handler(opts.command)
 	if handler is not None:
 		handler_instance = handler()
@@ -22,6 +22,14 @@ def _parse_args(args=None):
 		prog=constants.SELF_NAME,
 		description=None,
 		epilog=None
+	)
+
+	parser.add_argument(
+		"--config-path",
+		dest="config_path",
+		action="store",
+		metavar="PATH",
+		default=None,
 	)
 
 	subparsers = parser.add_subparsers(
