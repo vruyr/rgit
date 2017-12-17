@@ -1,11 +1,11 @@
 import argparse
-from .. import settings, constants
+from .. import configuration, constants
 from . import registry, scan, status
 
 
 async def main(args, *, loop=None):
 	opts = _parse_args(args=args)
-	config = await settings.load()
+	config = await configuration.load()
 	handler = registry.get_command_handler(opts.command)
 	if handler is not None:
 		handler_instance = handler()
