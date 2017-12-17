@@ -98,27 +98,42 @@ class Status(object):
 		destination_remotes = set()
 		other_remotes = set()
 		async for remote_name, url in self.enumerate_remotes(repo):
-			for destination_remote in self._config.destination_remotes:
-				if url_starts_with(url, destination_remote):
-					destination_remotes.add(remote_name)
-					break
+			destination_rule = await self.matching_destination_remote(url)
+			if destination_rule is not None:
+				destination_remotes.add(destination_rule)
 			else:
 				other_remotes.add(remote_name)
 
-		if not destination_remotes:
-			for destination_folder in self._config.destination_folders:
-				if destination_folder.parts == repo.parts[:len(destination_folder.parts)]:
-					break
-			else:
-				statistics["Destination Remotes"] = "<None>"
+		if await self.is_repo_bare(repo):
+			if destination_remotes:
+				statistics["Remotes"] = ", ".join(sorted(destination_remotes))
+		elif not destination_remotes and await self.matching_destination_folder(repo) is None:
+			statistics["Remotes"] = " - "
+
 		if other_remotes:
 			statistics["Other Remotes"] = ", ".join(sorted(other_remotes))
 
-	async def enumerate_remotes(self, repo):
-		remotes = (await self.git(repo, "remote")).splitlines()
+	async def get_remotes(self, repo):
+		return (await self.git(repo, "remote")).splitlines()
+
+	async def enumerate_remotes(self, repo, *, remotes=None):
+		if remotes is None:
+			remotes = await self.get_remotes(repo)
 		for remote in remotes:
 			url = await self.git(repo, "config", "--get", f"remote.{remote}.url")
 			yield (remote.strip(), url.strip())
+
+	async def matching_destination_remote(self, url):
+		for destination_remote in self._config.destination_remotes:
+			if url_starts_with(url, destination_remote):
+				return destination_remote
+		return None
+
+	async def matching_destination_folder(self, path):
+		for destination_folder in self._config.destination_folders:
+			if destination_folder.parts == path.parts[:len(destination_folder.parts)]:
+				return destination_folder
+		return None
 
 	async def get_repo_commit_statistics(
 		self, repo, statistics, *, without_remotes=False, even_bare=False
