@@ -1,5 +1,5 @@
 import sys, os, pathlib, asyncio, subprocess, re, collections, shlex
-from ..tools import draw_table, set_status_msg, add_status_msg
+from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with
 from .registry import command
 
 
@@ -41,6 +41,7 @@ class Status(object):
 			add_status_msg(".")
 			statistics = collections.defaultdict(int)
 			await self.get_repo_status_stats(repo, statistics)
+			await self.git_repo_remotes(repo, statistics)
 			await self.get_repo_commit_statistics(repo, statistics, without_remotes=True)
 			if not statistics.keys():
 				continue
@@ -92,6 +93,32 @@ class Status(object):
 			worktree = "•" if worktree == " " else worktree
 			status = f"{index}{worktree}"
 			statistics[status] += 1
+
+	async def git_repo_remotes(self, repo, statistics):
+		destination_remotes = set()
+		other_remotes = set()
+		async for remote_name, url in self.enumerate_remotes(repo):
+			for destination_remote in self._config.destination_remotes:
+				if url_starts_with(url, destination_remote):
+					destination_remotes.add(remote_name)
+					break
+			else:
+				other_remotes.add(remote_name)
+
+		if not destination_remotes:
+			for destination_folder in self._config.destination_folders:
+				if destination_folder.parts == repo.parts[:len(destination_folder.parts)]:
+					break
+			else:
+				statistics["Destination Remotes"] = "<None>"
+		if other_remotes:
+			statistics["Other Remotes"] = ", ".join(sorted(other_remotes))
+
+	async def enumerate_remotes(self, repo):
+		remotes = (await self.git(repo, "remote")).splitlines()
+		for remote in remotes:
+			url = await self.git(repo, "config", "--get", f"remote.{remote}.url")
+			yield (remote.strip(), url.strip())
 
 	async def get_repo_commit_statistics(
 		self, repo, statistics, *, without_remotes=False, even_bare=False

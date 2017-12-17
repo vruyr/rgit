@@ -30,6 +30,19 @@ class FileBasedConfiguration(object):
 
 	@property
 	def repositories(self):
-		repositories = self._content.get("repositories", [])
-		for r in repositories:
+		for r in self._content.get("repositories", []):
 			yield self.basedir / r
+
+	@property
+	def destination_remotes(self):
+		for r in self._destination.get("remotes", []):
+			yield r
+
+	@property
+	def destination_folders(self):
+		for f in self._destination.get("folders", []):
+			yield self.basedir / f
+
+	@property
+	def _destination(self):
+		return self._content.get("destination", {})
