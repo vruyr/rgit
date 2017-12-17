@@ -1,8 +1,7 @@
-import functools
-import sys
+import sys, functools, pathlib, urllib.parse
 
 
-# TODO Consider moving this to a separate python package (can be named termtools).
+# TODO Consider moving console output routines to a separate python package (can be named termtools)
 
 
 box_with_header = [
@@ -107,3 +106,30 @@ def set_status_msg(msg, *, fo=sys.stderr):
 def add_status_msg(msg, *, fo=sys.stderr):
 	fo.write(msg)
 	fo.flush()
+
+
+def url_starts_with(url, prefix):
+	url_parts = urllib.parse.urlsplit(url)
+	prefix_parts = urllib.parse.urlsplit(prefix)
+	assert len(url_parts) == 5, url_parts
+	assert len(prefix_parts) == 5, prefix_parts
+	if prefix_parts.scheme != url_parts.scheme:
+		return False
+	if prefix_parts.netloc != url_parts.netloc:
+		return prefix_parts[1:] == ("", "", "", "")
+	if prefix_parts.path or url_parts.path:
+		url_path = pathlib.PurePosixPath(url_parts.path)
+		prefix_path = pathlib.PurePosixPath(prefix_parts.path)
+		if prefix_path.is_absolute() != url_path.is_absolute():
+			return False
+		prefix_path_parts = prefix_path.parts
+		url_path_parts = url_path.parts
+		if len(prefix_path_parts) > len(url_path_parts):
+			return False
+		if prefix_path_parts != url_path_parts[:len(prefix_path_parts)]:
+			return False
+	if prefix_parts.query and prefix_parts.query != url_parts.query:
+		return False
+	if prefix_parts.fragment and prefix_parts.fragment != url_parts.fragment:
+		return False
+	return True
