@@ -209,7 +209,7 @@ class Status(object):
 					branch = "/".join(ref[2:])
 					branch_remote = None
 					branch_merge = None
-					async for key, value in git.get_config_branch(repo, branch, returncode_ok=True):
+					async for key, value in git.get_config_branch(repo, branch, returncode_ok=lambda x: True):
 						if key == "remote":
 							branch_remote = value
 						elif key == "merge":

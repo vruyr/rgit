@@ -106,7 +106,7 @@ async def get_config_remote(repo, remote):
 		yield x
 
 
-async def get_config_branch(repo, branch, *, returncode_ok=False):
+async def get_config_branch(repo, branch, *, returncode_ok=None):
 	text = await git(
 		repo, "config", "--get-regex", f"branch\\.{branch}\\..*", returncode_ok=returncode_ok
 	)
@@ -129,22 +129,32 @@ async def is_bare(repo):
 	return {"true": True, "false": False}[stdout.strip()]
 
 
-async def git(repo, *args, stderr_ok=False, returncode_ok=False):
+async def git(repo, *args, stderr_ok=False, returncode_ok=None, stdin=None):
 	p = await asyncio.create_subprocess_exec(
 		"git", "-C", os.fspath(repo), *args,
 		stdout=subprocess.PIPE,
 		stderr=subprocess.PIPE,
-		stdin=subprocess.DEVNULL,
+		stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
 		env=update_env(
 			GIT_TERMINAL_PROMPT="0"
-		)
+		),
+		encoding=None, # We want bytes
 	)
-	stdout, stderr = await p.communicate()
-	if not returncode_ok:
-		assert p.returncode == 0, (repo, p.returncode, stderr)
+	assert isinstance(stdin, (str, bytes, type(None)))
+	if isinstance(stdin, str):
+		stdin = stdin.encode("utf_8")
+	stdout, stderr = await p.communicate(input=stdin)
+	returncode_checker = None
+	if callable(returncode_ok):
+		returncode_checker = returncode_ok
+	else:
+		def assert_returncode(returncode):
+			return returncode == (returncode_ok if returncode_ok is not None else 0)
+		returncode_checker = assert_returncode
+	assert returncode_checker(p.returncode), (repo, p.returncode, stderr)
 	if not stderr_ok:
 		assert not stderr, (repo, p.returncode, stderr)
-	return stdout.decode()
+	return stdout.decode("utf_8")
 
 
 def update_env(*args, **kwargs):
