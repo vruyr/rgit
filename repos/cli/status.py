@@ -103,11 +103,12 @@ class Status(object):
 			else:
 				other_remotes.add(remote_name)
 
-		if await self.is_repo_bare(repo):
+		if await self.matching_destination_folder(repo) is not None:
 			if destination_remotes:
 				statistics["Remotes"] = ", ".join(sorted(destination_remotes))
-		elif not destination_remotes and await self.matching_destination_folder(repo) is None:
-			statistics["Remotes"] = " - "
+		else:
+			if not destination_remotes:
+				statistics["Remotes"] = " - "
 
 		if other_remotes:
 			statistics["Other Remotes"] = ", ".join(sorted(other_remotes))
