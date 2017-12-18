@@ -1,6 +1,101 @@
 import asyncio, subprocess, os
 
 
+async def status(repo, *args):
+	def process_status_porcelain_v2_output(stdout):
+		result = []
+		assert stdout[-1] == "\0"
+		stdout = stdout[:-1].split("\0")
+		while stdout:
+			entry = stdout.pop(0)
+			t, sp = entry[:2]
+			status_line = entry[2:]
+			assert sp == " "
+			if t == "#":
+				result.append(process_header(status_line))
+			elif t == "?":
+				result.append(process_untracked(status_line))
+			elif t == "!":
+				result.append(process_ignored(status_line))
+			elif t == "1":
+				result.append(process_ordinary(status_line))
+			elif t == "2":
+				result.append(process_rename(status_line, stdout.pop(0)))
+			elif t == "u":
+				result.append(process_unmerged(status_line))
+			else:
+				raise ValueError(f"unrecognized status line {entry}")
+		return result
+
+	def process_header(header):
+		name, sep, value = header.partition(" ")
+		assert sep == " "
+		return ("header", name, value)
+
+	def process_untracked(path):
+		return ("untracked", path)
+
+	def process_ignored(path):
+		return ("ignored", path)
+
+	def process_ordinary(status_line):
+		return ("ordinary", *split_ordinary_or_first_part_of_renamed(status_line))
+
+	def process_rename(status_line, path2):
+		parts = split_ordinary_or_first_part_of_renamed(status_line)
+		parts, status_line = parts[:-1], parts[-1]
+		Xscore, sep, path1 = status_line.partition(" ")
+		assert sep == " "
+		return ("rename", *parts, Xscore, path1, path2)
+
+	def process_unmerged(status_line):
+		xy = status_line[:2]
+		assert status_line[2] == " "
+		status_line = status_line[3:]
+		sub = status_line[:4]
+		assert status_line[4] == " ", status_line
+		status_line = status_line[5:]
+		m1, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		m2, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		m3, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		mW, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		h1, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		h2, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		h3, sep, path = status_line.partition(" ")
+		assert sep == " "
+		return ("unmerged", xy, sub, m1, m2, m3, mW, h1, h2, h3, path)
+
+	def split_ordinary_or_first_part_of_renamed(status_line):
+		xy, status_line = status_line[:2], status_line[2:]
+		assert status_line[0] == " "
+		sub, status_line = status_line[1:5], status_line[5:]
+		assert status_line[0] == " "
+		status_line = status_line[1:]
+
+		mH, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		mI, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		mW, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		hH, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+		hI, sep, status_line = status_line.partition(" ")
+		assert sep == " "
+
+		return (xy, sub, mH, mI, mW, hH, hI, status_line)
+
+	return process_status_porcelain_v2_output(
+		await git(repo, "status", *args, "-z", "--porcelain=v2")
+	)
+
+
 async def get_remotes(repo):
 	return (await git(repo, "remote")).splitlines()
 
