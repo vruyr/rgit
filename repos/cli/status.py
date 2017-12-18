@@ -85,6 +85,7 @@ class Status(object):
 	async def get_repo_status_stats(self, repo, statistics):
 		if await git.is_bare(repo):
 			return
+		# TODO Switch to using ..git.status() instead of calling the git command directly.
 		stdout = await git.git(repo, "status", "--porcelain")
 		if not stdout:
 			return
