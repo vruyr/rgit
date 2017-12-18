@@ -97,11 +97,15 @@ class Status(object):
 	async def get_repo_remotes(self, repo, statistics):
 		destination_remotes = set()
 		other_remotes = set()
+		if await self.matching_ignore_folder(repo) is not None:
+			return
 		async for remote_name, remote_config in self.enumerate_remotes(repo):
-			if await self.matching_destination_remote(remote_config["url"][-1]) is not None:
+			remote_url = remote_config["url"][-1]
+			if await self.matching_destination_remote(remote_url) is not None:
 				destination_remotes.add(remote_name)
 			else:
-				other_remotes.add(remote_name)
+				if await self.matching_ignore_remote(remote_url) is None:
+					other_remotes.add(remote_name)
 
 		if await self.matching_destination_folder(repo) is not None:
 			if destination_remotes:
@@ -146,15 +150,27 @@ class Status(object):
 			yield (remote.strip(), remote_config)
 
 	async def matching_destination_remote(self, url):
-		for destination_remote in self._config.destination_remotes:
-			if url_starts_with(url, destination_remote):
-				return destination_remote
+		for remote_url_prefix in self._config.destination_remotes:
+			if url_starts_with(url, remote_url_prefix):
+				return remote_url_prefix
 		return None
 
 	async def matching_destination_folder(self, path):
-		for destination_folder in self._config.destination_folders:
-			if destination_folder.parts == path.parts[:len(destination_folder.parts)]:
-				return destination_folder
+		for folder in self._config.destination_folders:
+			if folder.parts == path.parts[:len(folder.parts)]:
+				return folder
+		return None
+
+	async def matching_ignore_remote(self, url):
+		for remote_url_prefix in self._config.ignore_remotes:
+			if url_starts_with(url, remote_url_prefix):
+				return remote_url_prefix
+		return None
+
+	async def matching_ignore_folder(self, path):
+		for folder in self._config.ignore_folders:
+			if folder.parts == path.parts[:len(folder.parts)]:
+				return folder
 		return None
 
 	async def get_repo_commit_statistics(self, repo, statistics):

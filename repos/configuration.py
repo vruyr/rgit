@@ -35,14 +35,20 @@ class FileBasedConfiguration(object):
 
 	@property
 	def destination_remotes(self):
-		for r in self._destination.get("remotes", []):
+		for r in self._content.get("destination.remotes", []):
 			yield r
 
 	@property
 	def destination_folders(self):
-		for f in self._destination.get("folders", []):
+		for f in self._content.get("destination.folders", []):
 			yield self.basedir / f
 
 	@property
-	def _destination(self):
-		return self._content.get("destination", {})
+	def ignore_remotes(self):
+		for r in self._content.get("ignore.remotes", []):
+			yield r
+
+	@property
+	def ignore_folders(self):
+		for f in self._content.get("ignore.folders", []):
+			yield self.basedir / f
