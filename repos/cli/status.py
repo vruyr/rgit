@@ -33,7 +33,7 @@ class Status(object):
 
 		status_table = [
 			# TODO Implement a column sorting mechanism and remove this.
-			["#", "Repository Path", "Out"]
+			["#", "Repository Path"]
 		]
 		column_names = status_table[0]
 
@@ -97,10 +97,9 @@ class Status(object):
 	async def git_repo_remotes(self, repo, statistics):
 		destination_remotes = set()
 		other_remotes = set()
-		async for remote_name, url in self.enumerate_remotes(repo):
-			destination_rule = await self.matching_destination_remote(url)
-			if destination_rule is not None:
-				destination_remotes.add(destination_rule)
+		async for remote_name, remote_config in self.enumerate_remotes(repo):
+			if await self.matching_destination_remote(remote_config["url"]) is not None:
+				destination_remotes.add(remote_name)
 			else:
 				other_remotes.add(remote_name)
 
@@ -116,12 +115,21 @@ class Status(object):
 	async def get_remotes(self, repo):
 		return (await self.git(repo, "remote")).splitlines()
 
+	async def get_remote_config(self, repo, remote):
+		return await self.git(repo, "config", "--get-regex", f"remote\\.{remote}\\..*")
+
 	async def enumerate_remotes(self, repo, *, remotes=None):
 		if remotes is None:
 			remotes = await self.get_remotes(repo)
 		for remote in remotes:
-			url = await self.git(repo, "config", "--get", f"remote.{remote}.url")
-			yield (remote.strip(), url.strip())
+			remote_config_text = await self.get_remote_config(repo, remote)
+			remote_config = {}
+			prefix = f"remote.{remote}."
+			for remote_config_line in remote_config_text.splitlines():
+				key, value = remote_config_line.split(" ", maxsplit=1)
+				assert key.startswith(prefix), (prefix, key)
+				remote_config[key[len(prefix):]] = value.strip()
+			yield (remote.strip(), remote_config)
 
 	async def matching_destination_remote(self, url):
 		for destination_remote in self._config.destination_remotes:
@@ -196,7 +204,7 @@ class Status(object):
 		return {"true": True, "false": False}[stdout.strip()]
 
 	@staticmethod
-	async def git(repo, *args):
+	async def git(repo, *args, ok_fail=False):
 		p = await asyncio.create_subprocess_exec(
 			"git", "-C", os.fspath(repo), *args,
 			stdout=subprocess.PIPE,
@@ -207,8 +215,9 @@ class Status(object):
 			)
 		)
 		stdout, stderr = await p.communicate()
-		assert p.returncode == 0, (p.returncode, stderr)
-		assert not stderr, (repo, p.returncode, stderr)
+		if not ok_fail:
+			assert p.returncode == 0, (repo, p.returncode, stderr)
+			assert not stderr, (repo, p.returncode, stderr)
 		return stdout.decode()
 
 	_status_line_pattern = re.compile(r"^([ MADRCUT?!])([ MADRCUT?!]) (.*?)(?: -> (.*?))?$")
