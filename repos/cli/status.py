@@ -1,5 +1,5 @@
 import sys, os, pathlib, asyncio, subprocess, re, collections, shlex, itertools
-from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with
+from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with, gen_sort_index
 from .registry import command
 
 
@@ -31,44 +31,46 @@ class Status(object):
 		# TODO Implement configuration and hook checking.
 		# TODO Implement submodule checking (local vs remote commit, detached head, ...)
 
-		status_table = [
-			# TODO Implement a column sorting mechanism and remove this.
-			["#", "Repository Path"]
-		]
-		column_names = status_table[0]
+		statistics_table = []
 
 		for repo in self._config.repositories:
 			add_status_msg(".")
-			statistics = collections.defaultdict(int)
-			await self.get_repo_status_stats(repo, statistics)
+			statistics = {}
 			await self.get_repo_remotes(repo, statistics)
 			await self.get_repo_commit_statistics(repo, statistics)
-			if not statistics.keys():
-				continue
-			statistics["Repository Path"] = self._decorate_path_for_output(repo)
-			row = await self.render_statistics_row(column_names, statistics)
-			if row is not None:
-				status_table.append(row)
+			await self.get_repo_status_stats(repo, statistics)
+			await self.render_statistics_row(statistics_table, repo, statistics)
 
 		set_status_msg(None)
 
-		num_index = column_names.index("#")
-		for r, row in enumerate(status_table):
-			if r == 0:
-				continue
-			row[num_index] = r
+		sort_order = ["#", "Repository Path", "Remotes", "Commits"]
+		def cell_filter(*, row, column, value, width, fill):
+			if row == 0 or column == 1:
+				return str(value).ljust(width, fill)
+			if column == 2 and str(value).strip() == "-":
+				return str(value).strip().center(width, fill)
+			return str(value).rjust(width, fill)
 
-		draw_table(status_table, fo=sys.stdout, has_header=True, cell_filter=self.cell_filter)
+		statistics_table_sorted = []
+		sort_index = gen_sort_index(statistics_table[0], sort_order)
+		for row in statistics_table:
+			row_sorted = []
+			for i in sort_index:
+				row_sorted.append(row[i] if i < len(row) else "")
+			statistics_table_sorted.append(row_sorted)
 
-	@staticmethod
-	def cell_filter(*, row, column, value, width, fill):
-		if row == 0 or column == 1:
-			return str(value).ljust(width, fill)
-		return str(value).rjust(width, fill)
+		draw_table(statistics_table_sorted, fo=sys.stdout, has_header=True, cell_filter=cell_filter)
 
-	async def render_statistics_row(self, column_names, statistics):
+	async def render_statistics_row(self, statistics_table, repo, statistics):
+		if not statistics.keys():
+			return
+		if not statistics_table:
+			statistics_table.append([])
+		column_names = statistics_table[0]
+		statistics["#"] = len(statistics_table)
+		statistics["Repository Path"] = self._decorate_path_for_output(repo)
 		row = [""] * len(column_names)
-		for column_name in sorted(statistics.keys()):
+		for column_name in statistics.keys():
 			if column_name in column_names:
 				column_index = column_names.index(column_name)
 			else:
@@ -77,7 +79,7 @@ class Status(object):
 			while len(row) <= column_index:
 				row.append("")
 			row[column_index] = statistics[column_name]
-		return row
+		statistics_table.append(row)
 
 	async def get_repo_status_stats(self, repo, statistics):
 		if await self.git_is_bare(repo):
@@ -92,6 +94,7 @@ class Status(object):
 			index = "•" if index == " " else index
 			worktree = "•" if worktree == " " else worktree
 			status = f"{index}{worktree}"
+			statistics.setdefault(status, 0)
 			statistics[status] += 1
 
 	async def get_repo_remotes(self, repo, statistics):

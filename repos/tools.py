@@ -133,3 +133,13 @@ def url_starts_with(url, prefix):
 	if prefix_parts.fragment and prefix_parts.fragment != url_parts.fragment:
 		return False
 	return True
+
+
+def gen_sort_index(values, sort_order):
+	sort_order_dict = dict((e, i) for i, e in enumerate(sort_order))
+	sort_index = list(range(len(values)))
+	num_sorted = len(sort_order)
+	def sortkey(i):
+		column = values[i]
+		return (sort_order_dict.get(column, num_sorted), column)
+	return sorted(sort_index, key=sortkey)
