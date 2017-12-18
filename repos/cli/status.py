@@ -193,8 +193,8 @@ class Status(object):
 				assert sep == ":"
 				remote_refspecs[dst] = (src, remote_name)
 
-		local_revs = {}
-		remote_revs = {}
+		local_refs = {}
+		remote_refs = {}
 
 		for ref_str in (await self.git(repo, "show-ref")).splitlines():
 			object_id, ref_name = ref_str.split(" ", maxsplit=1)
@@ -203,7 +203,14 @@ class Status(object):
 			for dst, (src, remote_name) in remote_refspecs.items():
 				if ref.match(dst):
 					# TODO PurePosixPath.match() have a little different logic than git's globs
-					remote_revs[object_id] = (ref_name, dst, src, remote_name)
+					src_parts = list(pathlib.PurePosixPath(src).parts)
+					dst_parts = list(pathlib.PurePosixPath(dst).parts)
+					assert src_parts[-1] == "*"
+					assert dst_parts[-1] == "*"
+					remote_ref = src_parts[:-1]
+					remote_ref.extend(ref.parts[(len(dst_parts) - 1):])
+					remote_ref = "/".join(remote_ref)
+					remote_refs[(remote_name, remote_ref)] = (ref_name, object_id)
 					break
 			else:
 				ref = list(ref.parts)
@@ -224,33 +231,31 @@ class Status(object):
 							pass
 						else:
 							raise ValueError("unrecognized branch config", (repo, key, value))
-					local_revs[object_id] = (ref_name, branch_remote, branch_merge)
+					local_refs[ref_name] = (object_id, branch_remote, branch_merge)
 				elif ref[1] in ("tags", "notes"):
+					# local_refs[ref_name] = (object_id, None, None)
 					# TODO Implement tag and notes support
 					pass
 				else:
 					raise ValueError(f"Unrecognized Reference {ref_name}")
 
-		# TODO Only check outgoing changes to "safe" remotes
+		dangling_refs = []
+		tracking_refs = []
+		for ref, (object_id, branch_remote, branch_merge) in local_refs.items():
+			if not branch_remote or branch_remote not in remotes:
+				dangling_refs.append(ref)
+				continue
+			remote_ref, remote_object_id = remote_refs[(branch_remote, branch_merge)]
+			tracking_refs.append((ref, object_id, remote_ref, remote_object_id))
 
-		if remote_revs:
-			revs = [*(local_revs.keys()), *map(lambda x: f"^{x}", remote_revs.keys())]
-			count = len((await self.git(repo, "rev-list", *revs)).splitlines())
-			if count:
-				statistics["Out"] = count
+		if dangling_refs:
+			statistics["Refs"] = len(dangling_refs)
 
-	async def git_get_tracking_branches(self, repo, branch):
-		try:
-			upstream = await self.git(repo, "rev-parse", "--symbolic-full-name", branch + "@{upstream}")
-			upstream = upstream.strip()
-		except:
-			upstream = None
-		try:
-			push = await self.git(repo, "rev-parse", "--symbolic-full-name", branch + "@{push}")
-			push = push.strip()
-		except:
-			push = None
-		return (upstream, push)
+		revs = []
+		for ref, object_id, remote_ref, remote_object_id in tracking_refs:
+			revs.extend((await self.git(repo, "rev-list", object_id, f"^{remote_object_id}")).splitlines())
+		if revs:
+			statistics["Commits"] = len(revs)
 
 	async def git_is_bare(self, repo):
 		stdout = await self.git(repo, "rev-parse", "--is-bare-repository")
