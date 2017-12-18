@@ -1,6 +1,6 @@
 import argparse, pathlib
 from .. import configuration, constants
-from . import registry, scan, status
+from . import registry, scan, status, ignored
 
 
 async def main(args, *, loop=None):

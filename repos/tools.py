@@ -1,4 +1,4 @@
-import sys, functools, pathlib, urllib.parse
+import sys, functools, pathlib, urllib.parse, re
 
 
 # TODO Consider moving console output routines to a separate python package (can be named termtools)
@@ -143,3 +143,8 @@ def gen_sort_index(values, sort_order):
 		column = values[i]
 		return (sort_order_dict.get(column, num_sorted), column)
 	return sorted(sort_index, key=sortkey)
+
+
+def strict_int(x):
+	assert re.match(r"^\d+$", x), repr(x)
+	return int(x)
