@@ -1,6 +1,7 @@
-import sys, os, pathlib, asyncio, subprocess, re, collections, shlex, itertools
+import sys, os, pathlib, re, collections, shlex, itertools
 from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with, gen_sort_index
 from .registry import command
+from .. import git
 
 
 @command("status")
@@ -82,9 +83,9 @@ class Status(object):
 		statistics_table.append(row)
 
 	async def get_repo_status_stats(self, repo, statistics):
-		if await self.git_is_bare(repo):
+		if await git.is_bare(repo):
 			return
-		stdout = await self.git(repo, "status", "--porcelain")
+		stdout = await git.git(repo, "status", "--porcelain")
 		if not stdout:
 			return
 		for line in stdout.splitlines():
@@ -102,7 +103,7 @@ class Status(object):
 		other_remotes = set()
 		if await self.matching_ignore_folder(repo) is not None:
 			return
-		async for remote_name, remote_config in self.enumerate_remotes(repo):
+		async for remote_name, remote_config in git.enumerate_remotes(repo):
 			remote_url = remote_config["url"][-1]
 			if await self.matching_destination_remote(remote_url) is not None:
 				destination_remotes.add(remote_name)
@@ -119,38 +120,6 @@ class Status(object):
 
 		if other_remotes:
 			statistics["Other Remotes"] = ", ".join(sorted(other_remotes))
-
-	async def git_get_remotes(self, repo):
-		return (await self.git(repo, "remote")).splitlines()
-
-	async def git_get_remote_config(self, repo, remote):
-		text = await self.git(repo, "config", "--get-regex", f"remote\\.{remote}\\..*")
-		for x in self.walk_git_config_regex_output(text, f"remote.{remote}."):
-			yield x
-
-	async def git_get_branch_config(self, repo, branch, *, returncode_ok=False):
-		text = await self.git(
-			repo, "config", "--get-regex", f"branch\\.{branch}\\..*", returncode_ok=returncode_ok
-		)
-		for x in self.walk_git_config_regex_output(text, f"branch.{branch}."):
-			yield x
-
-	def walk_git_config_regex_output(self, text, prefix):
-		for line in text.splitlines():
-			key, value = line.split(" ", maxsplit=1)
-			assert key.startswith(prefix), (prefix, key)
-			key = key[len(prefix):].strip()
-			value = value.strip()
-			yield key, value
-
-	async def enumerate_remotes(self, repo, *, remotes=None):
-		if remotes is None:
-			remotes = await self.git_get_remotes(repo)
-		for remote in remotes:
-			remote_config = {}
-			async for key, value in self.git_get_remote_config(repo, remote):
-				remote_config.setdefault(key, []).append(value)
-			yield (remote.strip(), remote_config)
 
 	async def matching_destination_remote(self, url):
 		for remote_url_prefix in self._config.destination_remotes:
@@ -182,7 +151,7 @@ class Status(object):
 
 		unsupported_remote_configs = {}
 		d_remote_t = collections.namedtuple("d_remote_t", ["url", "fetch"])
-		async for remote_name, remote_config in self.enumerate_remotes(repo):
+		async for remote_name, remote_config in git.enumerate_remotes(repo):
 			remote_url = remote_config.pop("url")
 			remote_fetch = remote_config.pop("fetch")
 			if remote_config:
@@ -215,7 +184,7 @@ class Status(object):
 		local_refs = {}
 		remote_refs = {}
 
-		for ref_str in (await self.git(repo, "show-ref")).splitlines():
+		for ref_str in (await git.git(repo, "show-ref")).splitlines():
 			object_id, ref_name = ref_str.split(" ", maxsplit=1)
 			ref = pathlib.PurePosixPath(ref_name)
 
@@ -240,7 +209,7 @@ class Status(object):
 					branch = "/".join(ref[2:])
 					branch_remote = None
 					branch_merge = None
-					async for key, value in self.git_get_branch_config(repo, branch, returncode_ok=True):
+					async for key, value in git.get_config_branch(repo, branch, returncode_ok=True):
 						if key == "remote":
 							branch_remote = value
 						elif key == "merge":
@@ -272,31 +241,9 @@ class Status(object):
 
 		revs = []
 		for ref, object_id, remote_ref, remote_object_id in tracking_refs:
-			revs.extend((await self.git(repo, "rev-list", object_id, f"^{remote_object_id}")).splitlines())
+			revs.extend((await git.git(repo, "rev-list", object_id, f"^{remote_object_id}")).splitlines())
 		if revs:
 			statistics["Commits"] = len(revs)
-
-	async def git_is_bare(self, repo):
-		stdout = await self.git(repo, "rev-parse", "--is-bare-repository")
-		return {"true": True, "false": False}[stdout.strip()]
-
-	@staticmethod
-	async def git(repo, *args, stderr_ok=False, returncode_ok=False):
-		p = await asyncio.create_subprocess_exec(
-			"git", "-C", os.fspath(repo), *args,
-			stdout=subprocess.PIPE,
-			stderr=subprocess.PIPE,
-			stdin=subprocess.DEVNULL,
-			env=update_env(
-				GIT_TERMINAL_PROMPT="0"
-			)
-		)
-		stdout, stderr = await p.communicate()
-		if not returncode_ok:
-			assert p.returncode == 0, (repo, p.returncode, stderr)
-		if not stderr_ok:
-			assert not stderr, (repo, p.returncode, stderr)
-		return stdout.decode()
 
 	_status_line_pattern = re.compile(r"^([ MADRCUT?!])([ MADRCUT?!]) (.*?)(?: -> (.*?))?$")
 
@@ -326,13 +273,6 @@ class Status(object):
 			path_parts[:len(self._home_parts)] = "~"
 			path = pathlib.Path(*path_parts)
 		return path
-
-
-def update_env(*args, **kwargs):
-	new_env = dict(os.environ.items())
-	new_env.update(args)
-	new_env.update(kwargs.items())
-	return new_env
 
 
 @command("add")
