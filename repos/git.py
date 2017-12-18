@@ -4,8 +4,9 @@ import asyncio, subprocess, os
 async def status(repo, *args):
 	def process_status_porcelain_v2_output(stdout):
 		result = []
-		assert stdout[-1] == "\0"
-		stdout = stdout[:-1].split("\0")
+		if stdout:
+			assert stdout[-1] == "\0"
+			stdout = stdout[:-1].split("\0")
 		while stdout:
 			entry = stdout.pop(0)
 			t, sp = entry[:2]
