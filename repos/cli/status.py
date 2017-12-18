@@ -28,7 +28,7 @@ class Status(object):
 		self._shellify_paths = opts.shell
 
 		# TODO Add an optional command line parameter for folder from which status should be shown
-		# TODO Implement remotes, configuration, and hook checking.
+		# TODO Implement configuration and hook checking.
 		# TODO Implement submodule checking (local vs remote commit, detached head, ...)
 
 		status_table = [

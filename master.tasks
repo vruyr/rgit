@@ -1,0 +1,4 @@
+☐ Implement an "ignored" command that shows all the ignored files in all repositories.
+☐ Support worktrees.
+☐ Use pathlib.Path.resolve() in repos to detect symlinks and duplicate repo paths. Works on windows too.
+☐ Implement json output
