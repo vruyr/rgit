@@ -1,4 +1,4 @@
-import sys, os, pathlib, asyncio, subprocess, re, collections, shlex
+import sys, os, pathlib, asyncio, subprocess, re, collections, shlex, itertools
 from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with
 from .registry import command
 
@@ -41,8 +41,8 @@ class Status(object):
 			add_status_msg(".")
 			statistics = collections.defaultdict(int)
 			await self.get_repo_status_stats(repo, statistics)
-			await self.git_repo_remotes(repo, statistics)
-			await self.get_repo_commit_statistics(repo, statistics, without_remotes=True)
+			await self.get_repo_remotes(repo, statistics)
+			await self.get_repo_commit_statistics(repo, statistics)
 			if not statistics.keys():
 				continue
 			statistics["Repository Path"] = self._decorate_path_for_output(repo)
@@ -80,7 +80,7 @@ class Status(object):
 		return row
 
 	async def get_repo_status_stats(self, repo, statistics):
-		if await self.is_repo_bare(repo):
+		if await self.git_is_bare(repo):
 			return
 		stdout = await self.git(repo, "status", "--porcelain")
 		if not stdout:
@@ -94,11 +94,11 @@ class Status(object):
 			status = f"{index}{worktree}"
 			statistics[status] += 1
 
-	async def git_repo_remotes(self, repo, statistics):
+	async def get_repo_remotes(self, repo, statistics):
 		destination_remotes = set()
 		other_remotes = set()
 		async for remote_name, remote_config in self.enumerate_remotes(repo):
-			if await self.matching_destination_remote(remote_config["url"]) is not None:
+			if await self.matching_destination_remote(remote_config["url"][-1]) is not None:
 				destination_remotes.add(remote_name)
 			else:
 				other_remotes.add(remote_name)
@@ -113,23 +113,36 @@ class Status(object):
 		if other_remotes:
 			statistics["Other Remotes"] = ", ".join(sorted(other_remotes))
 
-	async def get_remotes(self, repo):
+	async def git_get_remotes(self, repo):
 		return (await self.git(repo, "remote")).splitlines()
 
-	async def get_remote_config(self, repo, remote):
-		return await self.git(repo, "config", "--get-regex", f"remote\\.{remote}\\..*")
+	async def git_get_remote_config(self, repo, remote):
+		text = await self.git(repo, "config", "--get-regex", f"remote\\.{remote}\\..*")
+		for x in self.walk_git_config_regex_output(text, f"remote.{remote}."):
+			yield x
+
+	async def git_get_branch_config(self, repo, branch, *, returncode_ok=False):
+		text = await self.git(
+			repo, "config", "--get-regex", f"branch\\.{branch}\\..*", returncode_ok=returncode_ok
+		)
+		for x in self.walk_git_config_regex_output(text, f"branch.{branch}."):
+			yield x
+
+	def walk_git_config_regex_output(self, text, prefix):
+		for line in text.splitlines():
+			key, value = line.split(" ", maxsplit=1)
+			assert key.startswith(prefix), (prefix, key)
+			key = key[len(prefix):].strip()
+			value = value.strip()
+			yield key, value
 
 	async def enumerate_remotes(self, repo, *, remotes=None):
 		if remotes is None:
-			remotes = await self.get_remotes(repo)
+			remotes = await self.git_get_remotes(repo)
 		for remote in remotes:
-			remote_config_text = await self.get_remote_config(repo, remote)
 			remote_config = {}
-			prefix = f"remote.{remote}."
-			for remote_config_line in remote_config_text.splitlines():
-				key, value = remote_config_line.split(" ", maxsplit=1)
-				assert key.startswith(prefix), (prefix, key)
-				remote_config[key[len(prefix):]] = value.strip()
+			async for key, value in self.git_get_remote_config(repo, remote):
+				remote_config.setdefault(key, []).append(value)
 			yield (remote.strip(), remote_config)
 
 	async def matching_destination_remote(self, url):
@@ -144,50 +157,89 @@ class Status(object):
 				return destination_folder
 		return None
 
-	async def get_repo_commit_statistics(
-		self, repo, statistics, *, without_remotes=False, even_bare=False
-	):
-		local_revs = set()
-		remote_revs = set()
+	async def get_repo_commit_statistics(self, repo, statistics):
+		remotes = {}
+		other_remotes = {}
+
+		unsupported_remote_configs = {}
+		d_remote_t = collections.namedtuple("d_remote_t", ["url", "fetch"])
+		async for remote_name, remote_config in self.enumerate_remotes(repo):
+			remote_url = remote_config.pop("url")
+			remote_fetch = remote_config.pop("fetch")
+			if remote_config:
+				unsupported_remote_configs[remote_name] = remote_config
+			remote = d_remote_t(remote_url, remote_fetch)
+			if await self.matching_destination_remote(remote.url[-1]) is not None:
+				remotes[remote_name] = remote
+			else:
+				other_remotes[remote_name] = remote
+		if unsupported_remote_configs:
+			statistics["Unsupported Remote Config"] = unsupported_remote_configs
+			return
+
+		if not remotes:
+			return
+
+		remote_refspecs = {}
+
+		for remote_name, remote_config in itertools.chain(remotes.items(), other_remotes.items()):
+			# https://git-scm.com/book/en/v2/Git-Internals-The-Refspec
+			for refspec in remote_config.fetch:
+				non_ff = False
+				if refspec[0] == "+":
+					non_ff = True
+					refspec = refspec[1:]
+				src, sep, dst = refspec.partition(":")
+				assert sep == ":"
+				remote_refspecs[dst] = (src, remote_name)
+
+		local_revs = {}
+		remote_revs = {}
 
 		for ref_str in (await self.git(repo, "show-ref")).splitlines():
 			object_id, ref_name = ref_str.split(" ", maxsplit=1)
-			ref = list(pathlib.PurePosixPath(ref_name).parts)
+			ref = pathlib.PurePosixPath(ref_name)
 
-			assert ref[0] == "refs"
-
-			if ref[1] == "heads":
-				local_revs.add(object_id)
-			elif ref[1] == "remotes":
-				remote_revs.add(object_id)
-			elif ref[1] in ("tags", "notes"):
-				# TODO Implement tag and notes support
-				pass
+			for dst, (src, remote_name) in remote_refspecs.items():
+				if ref.match(dst):
+					# TODO PurePosixPath.match() have a little different logic than git's globs
+					remote_revs[object_id] = (ref_name, dst, src, remote_name)
+					break
 			else:
-				raise ValueError(f"Unrecognized Reference {ref_name}")
+				ref = list(ref.parts)
 
-		if not remote_revs:
-			if without_remotes and (even_bare or not (await self.is_repo_bare(repo))):
-				statistics["Out"] = " - "
-		else:
-			revs = [*local_revs, *map(lambda x: f"^{x}", remote_revs)]
+				assert ref[0] == "refs"
+
+				if ref[1] == "heads":
+					branch = "/".join(ref[2:])
+					branch_remote = None
+					branch_merge = None
+					async for key, value in self.git_get_branch_config(repo, branch, returncode_ok=True):
+						if key == "remote":
+							branch_remote = value
+						elif key == "merge":
+							branch_merge = value
+						elif key in ("push", "pushremote"):
+							# TODO Shall we do something special here?
+							pass
+						else:
+							raise ValueError("unrecognized branch config", (repo, key, value))
+					local_revs[object_id] = (ref_name, branch_remote, branch_merge)
+				elif ref[1] in ("tags", "notes"):
+					# TODO Implement tag and notes support
+					pass
+				else:
+					raise ValueError(f"Unrecognized Reference {ref_name}")
+
+		# TODO Only check outgoing changes to "safe" remotes
+
+		if remote_revs:
+			revs = [*(local_revs.keys()), *map(lambda x: f"^{x}", remote_revs.keys())]
 			count = len((await self.git(repo, "rev-list", *revs)).splitlines())
 			if count:
 				statistics["Out"] = count
 
-			# TODO As a temporary measure, showing all the commits not present in any of the remotes
-			#      will give some useful info, but that is not a correct representation of the
-			#      situation. Instead, for each local branch (refs/heads/*) a corresponding tracking
-			#      branches (@{upstream}, @{push}) should be inspected. If a local branch does not
-			#      have a tracking remote branch, the closes point towards the first commit
-			#      available in any remote should be considered and outstanding commits reported as
-			#      outgoing. If the repository have a remote but have no local branches tracking any
-			#      of the branches of that remote, it is effectively the same as not having that
-			#      remote. Support for config remote.<name>.mirror should also be implemented. Or
-			#      maybe if there is a way to do dry-run push and observe what would go out, that
-			#      would be a better option.
-
-	async def get_tracking_branches(self, repo, branch):
+	async def git_get_tracking_branches(self, repo, branch):
 		try:
 			upstream = await self.git(repo, "rev-parse", "--symbolic-full-name", branch + "@{upstream}")
 			upstream = upstream.strip()
@@ -200,12 +252,12 @@ class Status(object):
 			push = None
 		return (upstream, push)
 
-	async def is_repo_bare(self, repo):
+	async def git_is_bare(self, repo):
 		stdout = await self.git(repo, "rev-parse", "--is-bare-repository")
 		return {"true": True, "false": False}[stdout.strip()]
 
 	@staticmethod
-	async def git(repo, *args, ok_fail=False):
+	async def git(repo, *args, stderr_ok=False, returncode_ok=False):
 		p = await asyncio.create_subprocess_exec(
 			"git", "-C", os.fspath(repo), *args,
 			stdout=subprocess.PIPE,
@@ -216,8 +268,9 @@ class Status(object):
 			)
 		)
 		stdout, stderr = await p.communicate()
-		if not ok_fail:
+		if not returncode_ok:
 			assert p.returncode == 0, (repo, p.returncode, stderr)
+		if not stderr_ok:
 			assert not stderr, (repo, p.returncode, stderr)
 		return stdout.decode()
 
