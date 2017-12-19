@@ -44,7 +44,7 @@ class Status(object):
 
 		set_status_msg(None)
 
-		sort_order = ["#", "Repository Path", "Remotes", "Commits"]
+		sort_order = ["#", "Path", "Remotes", "Commits"]
 		def cell_filter(*, row, column, value, width, fill):
 			if row == 0 or column == 1:
 				return str(value).ljust(width, fill)
@@ -69,7 +69,7 @@ class Status(object):
 			statistics_table.append([])
 		column_names = statistics_table[0]
 		statistics["#"] = len(statistics_table)
-		statistics["Repository Path"] = self._decorate_path_for_output(repo)
+		statistics["Path"] = self._decorate_path_for_output(repo)
 		row = [""] * len(column_names)
 		for column_name in statistics.keys():
 			if column_name in column_names:
