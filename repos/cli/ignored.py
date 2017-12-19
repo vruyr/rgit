@@ -70,8 +70,8 @@ class Ignored(object):
 				groups = ignore_group_reader.get_groups(ignore_file, ignore_file_line)
 				if groups is None:
 					group = "<error>"
-				elif not groups:
-					group = "_ungrouped_"
+				elif len(groups) < 1:
+					group = ""
 				else:
 					assert len(groups) <= 1
 					group = groups[0]
