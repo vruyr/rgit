@@ -1,4 +1,4 @@
-import asyncio, subprocess, os
+import asyncio, subprocess, os, pathlib
 
 
 async def status(repo, *args):
@@ -130,9 +130,41 @@ async def is_bare(repo):
 	return {"true": True, "false": False}[stdout.strip()]
 
 
-async def git(repo, *args, stderr_ok=False, returncode_ok=None, stdin=None):
+async def toplevel(repo):
+	path = (await git(repo, "rev-parse", "--show-toplevel", worktree=None, cwd=None)).splitlines()
+	if not path:
+		return None
+	assert len(path) == 1, repo
+	return pathlib.Path(path[0])
+
+
+WORKTREE = object()
+TOPLEVEL = object()
+
+
+async def git(
+	repo,
+	*args,
+	stderr_ok=False, returncode_ok=None, stdin=None, worktree=None, cwd=WORKTREE
+):
+	if worktree is TOPLEVEL:
+		worktree = await toplevel(repo)
+	if worktree is None and repo.name == ".git":
+		worktree = repo.parent
+	if cwd is WORKTREE:
+		cwd = worktree
+
+	extra_args = [
+		"--git-dir", os.fspath(repo)
+	]
+	if worktree is not None:
+		extra_args.append("--work-tree")
+		extra_args.append(os.fspath(worktree))
+	if cwd is not None:
+		extra_args.append("-C")
+		extra_args.append(os.fspath(cwd))
 	p = await asyncio.create_subprocess_exec(
-		"git", "-C", os.fspath(repo), *args,
+		"git", *extra_args, *args,
 		stdout=subprocess.PIPE,
 		stderr=subprocess.PIPE,
 		stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
