@@ -31,8 +31,14 @@ def cell_filter_ljust(*, row, column, value, width, fill):
 
 
 def draw_table(
-	rows, *, fo, box=box_with_header, has_header=False, cell_filter=cell_filter_ljust,
-	draw_separators_between_lines=False
+	rows,
+	*,
+	fo,
+	title=None,
+	box=box_with_header,
+	has_header=False,
+	cell_filter=cell_filter_ljust,
+	draw_separators_between_lines=False,
 ):
 	widths = []
 	for r, row in enumerate(rows):
@@ -41,6 +47,19 @@ def draw_table(
 			widths[c] = max(widths[c], len(cell_filter(
 				row=r, column=c, value=v, width=0, fill=" "
 			)))
+
+	if title is not None:
+		assert isinstance(title, str)
+		fo.write(box[0][0])
+		fo.write(box[0][1] * len(title))
+		fo.write(box[0][3])
+		fo.write("\n")
+		fo.write(box[1][0])
+		fo.write(title)
+		fo.write(box[1][3])
+		fo.write("\n")
+
+	# TODO Use box[2] for the first line if title is not None
 
 	template_row = 0 if has_header else 3
 	draw_line(
