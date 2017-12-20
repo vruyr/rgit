@@ -1,4 +1,1 @@
-☐ Support worktrees.
-☐ Use pathlib.Path.resolve() in repos to detect symlinks and duplicate repo paths. Works on windows too.
-☐ Implement json output
-☐ status --sh is broken
+☐ Add support for `git-worktree`s.

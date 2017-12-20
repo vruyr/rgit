@@ -4,6 +4,15 @@ from .registry import command
 from .. import git
 
 
+# TODO Implement detection of repositories in working copies of other repositories without proper submodule references.
+# TODO Implement outgoing commits and local modifications detection in submodules.
+# TODO Implement reporting commits in submodules committed to super-repo but not yet pushed in the submodule.
+# TODO Add an optional command line parameter for folder from which status should be shown.
+# TODO Implement configuration and hook checking.
+# TODO Implement detached head detection in submodules.
+# TODO Fix broken `repos status --sh`
+
+
 @command("status")
 class Status(object):
 	@classmethod
@@ -27,10 +36,6 @@ class Status(object):
 	async def execute(self, *, opts, config):
 		self._config = config
 		self._shellify_paths = opts.shell
-
-		# TODO Add an optional command line parameter for folder from which status should be shown
-		# TODO Implement configuration and hook checking.
-		# TODO Implement submodule checking (local vs remote commit, detached head, ...)
 
 		statistics_table = []
 
@@ -195,7 +200,7 @@ class Status(object):
 
 			for dst, (src, remote_name) in remote_refspecs.items():
 				if ref.match(dst):
-					# TODO PurePosixPath.match() have a little different logic than git's globs
+					# TODO PurePosixPath.match() have a little different logic than git's globs.
 					src_parts = list(pathlib.PurePosixPath(src).parts)
 					dst_parts = list(pathlib.PurePosixPath(dst).parts)
 					assert src_parts[-1] == "*"
@@ -220,14 +225,14 @@ class Status(object):
 						elif key == "merge":
 							branch_merge = value
 						elif key in ("push", "pushremote"):
-							# TODO Shall we do something special here?
+							# TODO Shall we do something special if branch push and pushremote are configured?
 							pass
 						else:
 							raise ValueError("unrecognized branch config", (repo, key, value))
 					local_refs[ref_name] = (object_id, branch_remote, branch_merge)
 				elif ref[1] in ("tags", "notes"):
 					# local_refs[ref_name] = (object_id, None, None)
-					# TODO Implement tag and notes support
+					# TODO Implement refs/tags/ and refs/notes/ support.
 					pass
 				else:
 					raise ValueError(f"Unrecognized Reference {ref_name}")

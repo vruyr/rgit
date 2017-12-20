@@ -17,7 +17,7 @@ class FileBasedConfiguration(object):
 			return
 		with self._path.open("r") as fo:
 			config = json.load(fo)
-		# TODO Validate loaded config against a schema
+		# TODO Validate loaded config against a schema.
 		self._content = config
 
 	async def _save(self):

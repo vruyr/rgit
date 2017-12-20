@@ -25,10 +25,6 @@ class Scan(object):
 		pass
 
 	async def execute(self, *, opts, config):
-		# TODO Implement finding repositories in working copies of other repositories without proper
-		#      submodule references. Also implement outgoing commits and local modifications
-		#      detection in submodules. Also commits in submodules committed to super-repo but not
-		#      yet pushed in the submodule.
 		repositories = set(config.repositories)
 		counter = 0
 		for starting_folder in opts.starting_folders:
@@ -42,6 +38,7 @@ class Scan(object):
 
 				if repo is not None:
 					del dirs[:]
+					# TODO This will report duplication repos if symlinks are used (e.g. folders in windows %USERPROFILE%).
 					if pathlib.Path(repo) not in repositories:
 						set_status_msg(None)
 						await self.report_new_repo(repo)

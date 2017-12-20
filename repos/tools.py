@@ -1,7 +1,8 @@
 import sys, functools, pathlib, urllib.parse, re
 
 
-# TODO Consider moving console output routines to a separate python package (can be named termtools)
+# TODO Consider moving console output routines to a separate python package (can be named termtools).
+
 
 BOX_ROW_HEADER_TOP = 0
 BOX_ROW_HEADER_CONTENT = 1
