@@ -1,13 +1,20 @@
-import re, itertools, os
+import re, os, sys, pathlib
 from .registry import command
 from .. import git
-from ..tools import strict_int
+from ..tools import is_path_in, strict_int, add_status_msg, set_status_msg, draw_table
 
 
 @command("ignored")
 class Ignored(object):
 	@classmethod
 	def define_arguments(cls, parser):
+		parser.add_argument(
+			"--format", "-f",
+			dest="format",
+			action="store",
+			choices=["table", "json"],
+			default="table",
+		)
 		parser.add_argument(
 			"--group", "-g",
 			dest="groups",
@@ -19,7 +26,20 @@ class Ignored(object):
 				"until \"#}}}\""
 			),
 		)
-
+		parser.add_argument(
+			"--list", "-l",
+			dest="show_lists_only",
+			action="store",
+			metavar="NAME",
+			default=None,
+			help="show list of groups only"
+		)
+		parser.add_argument(
+			"folders",
+			nargs="*",
+			metavar="FOLDER",
+			help="only inspect repositories that are in one of specified folders"
+		)
 	@classmethod
 	def short_description(cls):
 		return "show and manipulate ignored files in repositories"
@@ -28,15 +48,28 @@ class Ignored(object):
 		self._config = None
 
 	async def execute(self, *, opts, config):
-		print(opts)
 		self._config = config
+
+		opts.folders = [pathlib.Path(f).resolve() for f in opts.folders]
+		opts.groups = set(opts.groups)
 
 		ignore_group_reader = IgnoreGroupReader()
 
 		results = {}
 		for repo in self._config.repositories:
 			if await git.is_bare(repo):
+				add_status_msg(".")
 				continue
+
+			worktree_path = await git.toplevel(repo)
+			worktree_fspath = os.fspath(worktree_path)
+
+			if opts.folders and not any(is_path_in(f, worktree_path) for f in opts.folders):
+				add_status_msg("-")
+				continue
+
+			add_status_msg("*")
+
 			ignored_files = [
 				path
 				for _, path in filter(
@@ -60,26 +93,94 @@ class Ignored(object):
 			assert stdout.pop(-1) == ""
 			ignored = map(lambda i: stdout[(i*4):(i*4+4)], range(len(stdout) // 4))
 
-			worktree_path = await git.toplevel(repo)
-
-			ignored_files_by_group = {}
 			for ignore_file, ignore_file_line, ignore_pattern, path in ignored:
 				ignore_file = None if ignore_file == "" else worktree_path / ignore_file
 				ignore_file_line = None if ignore_file_line == "" else strict_int(ignore_file_line)
 				assert (ignore_file is None) == (ignore_file_line is None)
 				groups = ignore_group_reader.get_groups(ignore_file, ignore_file_line)
 				if groups is None:
-					group = "<error>"
+					group = "<failed to identify matching ignore pattern>"
 				elif len(groups) < 1:
-					group = ""
+					group = "-"
 				else:
 					assert len(groups) <= 1
 					group = groups[0]
-				ignored_files_by_group.setdefault(group, []).append(path)
-			results[os.fspath(worktree_path)] = ignored_files_by_group
+				if opts.groups and group not in opts.groups:
+					continue
+				ignore_file_fspath = os.fspath(ignore_file) if ignore_file is not None else None
+				results.setdefault(group, {}).setdefault(worktree_fspath, {})[path] = [
+					ignore_file_fspath, ignore_file_line, ignore_pattern
+				]
+		set_status_msg(None)
 
-		import json
-		print(json.dumps(results, indent="\t"))
+		if opts.show_lists_only is not None:
+			lists_to_show = set(re.split(r"[,\s]+", opts.show_lists_only))
+			at_least_one_list_shown = False
+			def show_list(thelist, *, sort=True):
+				if sort:
+					thelist = sorted(thelist)
+				nonlocal at_least_one_list_shown
+				if at_least_one_list_shown:
+					sys.stdout.write("\n")
+				else:
+					at_least_one_list_shown = True
+				if opts.format == "json":
+					import json
+					json.dump(thelist, sys.stdout, indent="\t")
+					sys.stdout.write("\n")
+				else:
+					sys.stdout.write("\n".join(thelist))
+					sys.stdout.write("\n")
+
+			if "groups" in lists_to_show:
+				lists_to_show.remove("groups")
+				show_list(list(results.keys()))
+
+			if "sources" in lists_to_show:
+				lists_to_show.remove("sources")
+				thelist = set()
+				for group in results.values():
+					for workdir in group.values():
+						for file in workdir.values():
+							thelist.add(f"{file[0]}:{file[1]}")
+				show_list(map(str, thelist))
+
+			if "files" in lists_to_show:
+				lists_to_show.remove("files")
+				thelist = set()
+				for group in results.values():
+					for workdir_path, workdir in group.items():
+						for file in workdir.keys():
+							thelist.add(os.path.join(workdir_path, file))
+				show_list(thelist)
+
+			if lists_to_show:
+				raise ValueError(f"unsupported lists {lists_to_show}")
+		else:
+			if opts.format == "json":
+				import json
+				fo = sys.stdout
+				json.dump(results, fo, indent="\t")
+				fo.write("\n")
+				fo.flush()
+			elif opts.format == "table":
+				for group, repos in results.items():
+					rows = [
+						["Work-tree Path", "File Path", "Ignore File Path", "Ignore File Line", "Pattern"]
+					]
+					for path, files in repos.items():
+						for file, pattern_tuple in files.items():
+							if file != repr(file)[1:-1]:
+								file = repr(file)
+							rows.append([path, file, *pattern_tuple])
+					draw_table(
+						rows,
+						title=group,
+						has_header=True,
+						fo=sys.stdout,
+					)
+			else:
+				raise ValueError(f"unsupported output format {repr(opts.format)}")
 
 
 class IgnoreGroupReader(object):
@@ -100,12 +201,12 @@ class IgnoreGroupReader(object):
 		result = []
 		start_marker = "#{{{"
 		end_marker = "#}}}"
-		group_name_pattern = re.compile(r"^[a-zA-Z0-9_]+$")
+		group_name_pattern = re.compile(r"^[a-z0-9_]+$")
 		group_stack = []
 		with path.open("r") as fo:
 			for line in fo:
 				if line.startswith(start_marker):
-					group = line[len(start_marker):].strip()
+					group = line[len(start_marker):].strip().lower()
 					if not group_name_pattern.match(group):
 						raise ValueError(f"invalid group name - {repr(group)}")
 					group_stack.append(group)
