@@ -68,15 +68,17 @@ class Status(object):
 				return str(value).strip().center(width, fill)
 			return str(value).rjust(width, fill)
 
-		statistics_table_sorted = []
-		sort_index = gen_sort_index(statistics_table[0], sort_order)
-		for row in statistics_table:
-			row_sorted = []
-			for i in sort_index:
-				row_sorted.append(row[i] if i < len(row) else "")
-			statistics_table_sorted.append(row_sorted)
+		if statistics_table:
+			statistics_table_sorted = []
+			sort_index = gen_sort_index(statistics_table[0], sort_order)
+			for row in statistics_table:
+				row_sorted = []
+				for i in sort_index:
+					row_sorted.append(row[i] if i < len(row) else "")
+				statistics_table_sorted.append(row_sorted)
+			statistics_table = statistics_table_sorted
 
-		draw_table(statistics_table_sorted, fo=sys.stdout,
+		draw_table(statistics_table, fo=sys.stdout,
 			title="Unclean Repositories",
 			has_header=True,
 			cell_filter=cell_filter
