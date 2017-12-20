@@ -3,11 +3,27 @@ import sys, functools, pathlib, urllib.parse, re
 
 # TODO Consider moving console output routines to a separate python package (can be named termtools)
 
+BOX_ROW_HEADER_TOP = 0
+BOX_ROW_HEADER_CONTENT = 1
+BOX_ROW_HEADER_SEPARATOR = 2
+BOX_ROW_HEADER_BOTTOM = 3
+BOX_ROW_HEADER_BOTTOM_BODY_TOP = 4
+BOX_ROW_BODY_TOP = 5
+BOX_ROW_BODY_CONTENT = 6
+BOX_ROW_BODY_SEPARATOR = 7
+BOX_ROW_BODY_BOTTOM = 8
+
+BOX_COL_LEFT = 0
+BOX_COL_CONTENT = 1
+BOX_COL_SEPARATOR = 2
+BOX_COL_RIGHT = 3
 
 box_with_header = [
 	[
 		"┏━┳┓",
 		"┃h┃┃",
+		"┣━╋┫",
+		"┗━┻┛",
 		"┡━╇┩",
 		"┌─┬┐",
 		"│b││",
@@ -17,6 +33,8 @@ box_with_header = [
 	[
 		"┌─┬┐",
 		"│h││",
+		"├─┼┤",
+		"└─┴┘",
 		"╞═╪╡",
 		"┌─┬┐",
 		"│b││",
@@ -26,14 +44,49 @@ box_with_header = [
 ][1]
 
 
+def combine_box_symbols(box, first, second):
+	if first is None:
+		return second
+	elif second == " ":
+		return first
+	elif first == second:
+		return first
+	elif first == box[BOX_ROW_HEADER_TOP][BOX_COL_LEFT] and second == box[BOX_ROW_HEADER_BOTTOM][BOX_COL_LEFT]:
+		return box[BOX_ROW_HEADER_SEPARATOR][BOX_COL_LEFT]
+	elif first == box[BOX_ROW_HEADER_TOP][BOX_COL_CONTENT] and second == box[BOX_ROW_HEADER_BOTTOM][BOX_COL_RIGHT]:
+		return box[BOX_ROW_HEADER_BOTTOM][BOX_COL_SEPARATOR]
+	elif first == box[BOX_ROW_HEADER_TOP][BOX_COL_SEPARATOR] and second == box[BOX_ROW_HEADER_BOTTOM][BOX_COL_RIGHT]:
+		return box[BOX_ROW_HEADER_SEPARATOR][BOX_COL_SEPARATOR]
+	elif first == box[BOX_ROW_HEADER_TOP][BOX_COL_SEPARATOR] and second == box[BOX_ROW_HEADER_BOTTOM][BOX_COL_CONTENT]:
+		return first
+	elif first == box[BOX_ROW_HEADER_TOP][BOX_COL_RIGHT] and second == box[BOX_ROW_HEADER_BOTTOM][BOX_COL_RIGHT]:
+		return box[BOX_ROW_HEADER_SEPARATOR][BOX_COL_RIGHT]
+	elif first == box[BOX_ROW_HEADER_TOP][BOX_COL_RIGHT] and second == box[BOX_ROW_HEADER_BOTTOM][BOX_COL_CONTENT]:
+		return box[BOX_ROW_HEADER_TOP][BOX_COL_SEPARATOR]
+
+	elif first == box[BOX_ROW_BODY_TOP][BOX_COL_LEFT] and second == box[BOX_ROW_BODY_BOTTOM][BOX_COL_LEFT]:
+		return box[BOX_ROW_BODY_SEPARATOR][BOX_COL_LEFT]
+	elif first == box[BOX_ROW_BODY_TOP][BOX_COL_CONTENT] and second == box[BOX_ROW_BODY_BOTTOM][BOX_COL_RIGHT]:
+		return box[BOX_ROW_BODY_BOTTOM][BOX_COL_SEPARATOR]
+	elif first == box[BOX_ROW_BODY_TOP][BOX_COL_SEPARATOR] and second == box[BOX_ROW_BODY_BOTTOM][BOX_COL_RIGHT]:
+		return box[BOX_ROW_BODY_SEPARATOR][BOX_COL_SEPARATOR]
+	elif first == box[BOX_ROW_BODY_TOP][BOX_COL_SEPARATOR] and second == box[BOX_ROW_BODY_BOTTOM][BOX_COL_CONTENT]:
+		return first
+	elif first == box[BOX_ROW_BODY_TOP][BOX_COL_RIGHT] and second == box[BOX_ROW_BODY_BOTTOM][BOX_COL_RIGHT]:
+		return box[BOX_ROW_BODY_SEPARATOR][BOX_COL_RIGHT]
+	elif first == box[BOX_ROW_BODY_TOP][BOX_COL_RIGHT] and second == box[BOX_ROW_BODY_BOTTOM][BOX_COL_CONTENT]:
+		return box[BOX_ROW_BODY_TOP][BOX_COL_SEPARATOR]
+
+	else:
+		raise NotImplementedError(f"{(first, second)}")
+
+
 def cell_filter_ljust(*, row, column, value, width, fill):
 	return str(value).ljust(width, fill)
 
 
-def draw_table(
-	rows,
-	*,
-	fo,
+def draw_table(rows, *, fo,
+	# Optional Parameters
 	title=None,
 	box=box_with_header,
 	has_header=False,
@@ -41,75 +94,91 @@ def draw_table(
 	draw_separators_between_lines=False,
 ):
 	widths = []
-	for r, row in enumerate(rows):
+	for row_num, row in enumerate(rows):
 		widths.extend([0] * (len(row) - len(widths)))
 		for c, v in enumerate(row):
 			widths[c] = max(widths[c], len(cell_filter(
-				row=r, column=c, value=v, width=0, fill=" "
+				row=row_num, column=c, value=v, width=0, fill=" "
 			)))
+
+	template_row = None
+	row_num = None
+
+	def render_row(row, fill=" "):
+		nonlocal box, template_row, row_num, cell_filter, widths
+		template = box[template_row]
+		_cell_filter = cell_filter
+		if row is None:
+			_cell_filter = cell_filter_ljust
+			fill = box[template_row][BOX_COL_CONTENT]
+			row = [""] * len(widths)
+		result = ""
+		result += template[BOX_COL_LEFT]
+		result += template[BOX_COL_SEPARATOR].join(
+			(
+				_cell_filter(
+					row=row_num, column=i, value=value, width=widths[i], fill=fill
+				)[:widths[i]]
+			) for i, value in enumerate(row)
+		)
+		result += template[BOX_COL_RIGHT]
+		return result
 
 	if title is not None:
 		assert isinstance(title, str)
-		fo.write(box[0][0])
-		fo.write(box[0][1] * len(title))
-		fo.write(box[0][3])
+		template_row = BOX_ROW_HEADER_TOP if has_header else BOX_ROW_BODY_TOP
+		fo.write(box[template_row][BOX_COL_LEFT])
+		fo.write(box[template_row][BOX_COL_CONTENT] * len(title))
+		fo.write(box[template_row][BOX_COL_RIGHT])
 		fo.write("\n")
-		fo.write(box[1][0])
+		template_row = BOX_ROW_HEADER_CONTENT if has_header else BOX_ROW_BODY_CONTENT
+		fo.write(box[template_row][BOX_COL_LEFT])
 		fo.write(title)
-		fo.write(box[1][3])
+		fo.write(box[template_row][BOX_COL_RIGHT])
 		fo.write("\n")
 
-	# TODO Use box[2] for the first line if title is not None
+	row_num = None
+	template_row = BOX_ROW_HEADER_TOP if has_header else BOX_ROW_BODY_TOP
+	first_line = render_row(None)
 
-	template_row = 0 if has_header else 3
-	draw_line(
-		fo,
-		box[template_row],
-		(("", w, box[template_row][1]) for w in widths),
-		functools.partial(cell_filter_ljust, row=0)
-	)
-	for r, row in enumerate(rows):
-		row = row + ([""] * (len(widths) - len(row)))
-		template_row = 4
-		if r == 0 and has_header:
-			template_row = 1
-		draw_line(
-			fo,
-			box[template_row],
-			((value, widths[i], " ") for i, value in enumerate(row)),
-			functools.partial(cell_filter, row=r)
-		)
-		template_row = 5 if draw_separators_between_lines else None
-		if r == len(rows) - 1:
-			template_row = 6
-		elif r == 0 and has_header:
-			template_row = 2
-		if template_row is not None:
-			draw_line(
-				fo,
-				box[template_row],
-				(("", w, box[template_row][1]) for w in widths),
-				functools.partial(cell_filter_ljust, row=r)
-			)
-	fo.flush()
+	if title is not None:
+		first_line_patch = ""
+		template_row = BOX_ROW_HEADER_BOTTOM if has_header else BOX_ROW_BODY_BOTTOM
+		first_line_patch += box[template_row][BOX_COL_LEFT]
+		first_line_patch += box[template_row][BOX_COL_CONTENT] * len(title)
+		first_line_patch += box[template_row][BOX_COL_RIGHT]
+		new_first_line = ""
+		for i, c in enumerate(first_line_patch):
+			new_first_line += combine_box_symbols(box, first_line[i] if i < len(first_line) else None, c)
+		new_first_line += first_line[len(new_first_line):]
+		first_line = new_first_line
 
-
-def draw_line(fo, template, columns, cell_filter):
-	"""
-	:param fo: file object to write to
-	:param template: box drawing template line
-	:param columns: sequence of 3-tuples - value, width, fill
-	:param cell_filter: function
-	:return: None
-	"""
-	fo.write(template[0])
-	fo.write(template[2].join(
-		(
-			cell_filter(column=i, value=value, width=width, fill=fill)[:width]
-		) for i, (value, width, fill) in enumerate(columns)
-	))
-	fo.write(template[3])
+	fo.write(first_line)
 	fo.write("\n")
+
+	for row_num, row in enumerate(rows):
+		row = row + ([""] * (len(widths) - len(row)))
+
+		template_row = BOX_ROW_BODY_CONTENT
+		if row_num == 0 and has_header:
+			template_row = BOX_ROW_HEADER_CONTENT
+
+		fo.write(render_row(row))
+		fo.write("\n")
+
+		template_row = None
+		if draw_separators_between_lines:
+			template_row = BOX_ROW_BODY_SEPARATOR
+		if row_num == len(rows) - 1:
+			template_row = BOX_ROW_BODY_BOTTOM
+		elif row_num == 0 and has_header:
+			template_row = BOX_ROW_HEADER_BOTTOM_BODY_TOP
+
+		if template_row is not None:
+			fo.write(render_row(None))
+			fo.write("\n")
+
+	fo.flush()
 
 
 def set_status_msg(msg, *, fo=sys.stderr):
