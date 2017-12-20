@@ -60,7 +60,11 @@ class Status(object):
 				row_sorted.append(row[i] if i < len(row) else "")
 			statistics_table_sorted.append(row_sorted)
 
-		draw_table(statistics_table_sorted, fo=sys.stdout, has_header=True, cell_filter=cell_filter)
+		draw_table(statistics_table_sorted, fo=sys.stdout,
+			title="Unclean Repositories",
+			has_header=True,
+			cell_filter=cell_filter
+		)
 
 	async def render_statistics_row(self, statistics_table, repo, statistics):
 		if not statistics.keys():
