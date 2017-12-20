@@ -38,7 +38,7 @@ class Ignored(object):
 			"folders",
 			nargs="*",
 			metavar="FOLDER",
-			help="only inspect repositories that are in one of specified folders"
+			help="only inspect repositories worktrees of which are in one of specified folders"
 		)
 	@classmethod
 	def short_description(cls):

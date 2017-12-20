@@ -1,5 +1,5 @@
 import sys, os, pathlib, re, collections, shlex, itertools
-from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with, gen_sort_index
+from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with, gen_sort_index, is_path_in
 from .registry import command
 from .. import git
 
@@ -7,7 +7,6 @@ from .. import git
 # TODO Implement detection of repositories in working copies of other repositories without proper submodule references.
 # TODO Implement outgoing commits and local modifications detection in submodules.
 # TODO Implement reporting commits in submodules committed to super-repo but not yet pushed in the submodule.
-# TODO Add an optional command line parameter for folder from which status should be shown.
 # TODO Implement configuration and hook checking.
 # TODO Implement detached head detection in submodules.
 # TODO Fix broken `repos status --sh`
@@ -25,6 +24,12 @@ class Status(object):
 			default=False,
 			help="display paths suitable to be copy-pasted into shell",
 		)
+		parser.add_argument(
+			"folders",
+			nargs="*",
+			metavar="FOLDER",
+			help="only inspect repositories that are in one of specified folders"
+		)
 
 	@classmethod
 	def short_description(cls):
@@ -38,10 +43,15 @@ class Status(object):
 		self._config = config
 		self._shellify_paths = opts.shell
 
+		opts.folders = [pathlib.Path(f).resolve() for f in opts.folders]
+
 		statistics_table = []
 
 		for repo in self._config.repositories:
-			add_status_msg(".")
+			if opts.folders and not any(is_path_in(f, repo) for f in opts.folders):
+				add_status_msg("-")
+				continue
+			add_status_msg("*")
 			statistics = {}
 			await self.get_repo_remotes(repo, statistics)
 			await self.get_repo_commit_statistics(repo, statistics)
