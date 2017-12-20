@@ -31,26 +31,25 @@ class Scan(object):
 		#      yet pushed in the submodule.
 		repositories = set(config.repositories)
 		counter = 0
-		# TODO walk all the folders, not just the first one
-		assert len(opts.starting_folders) == 1
-		for root, dirs, files in os.walk(opts.starting_folders[0], topdown=True):
-			repo = None
+		for starting_folder in opts.starting_folders:
+			for root, dirs, files in os.walk(starting_folder, topdown=True):
+				repo = None
 
-			if ".git" in dirs or ".git" in files:
-				repo = os.path.join(root, ".git")
-			elif "refs" in dirs and "objects" in dirs and "HEAD" in files:
-				repo = root
+				if ".git" in dirs or ".git" in files:
+					repo = os.path.join(root, ".git")
+				elif "refs" in dirs and "objects" in dirs and "HEAD" in files:
+					repo = root
 
-			if repo is not None:
-				del dirs[:]
-				if pathlib.Path(repo) not in repositories:
-					set_status_msg(None)
-					await self.report_new_repo(repo)
+				if repo is not None:
+					del dirs[:]
+					if pathlib.Path(repo) not in repositories:
+						set_status_msg(None)
+						await self.report_new_repo(repo)
 
-			counter += 1
-			if counter >= 1000:
-				add_status_msg(".")
-				counter = 0
+				counter += 1
+				if counter >= 1000:
+					add_status_msg(".")
+					counter = 0
 
 		set_status_msg(None)
 

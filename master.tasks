@@ -1,5 +1,4 @@
 ☐ Support worktrees.
 ☐ Use pathlib.Path.resolve() in repos to detect symlinks and duplicate repo paths. Works on windows too.
 ☐ Implement json output
-☐ Scan is broken after changing .repos.json:.repositories
 ☐ status --sh is broken
