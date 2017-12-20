@@ -167,3 +167,7 @@ def gen_sort_index(values, sort_order):
 def strict_int(x):
 	assert re.match(r"^\d+$", x), repr(x)
 	return int(x)
+
+
+def is_path_in(parent, child):
+	return child.parts[:len(parent.parts)] == parent.parts
