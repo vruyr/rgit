@@ -11,6 +11,7 @@ from .. import git
 # TODO Implement configuration and hook checking.
 # TODO Implement detached head detection in submodules.
 # TODO Fix broken `repos status --sh`
+# TODO Use `git check-attr` to find all unconfigured filters.
 
 
 @command("status")
