@@ -168,17 +168,17 @@ def draw_table(rows, *, fo,
 		fo.write("\n")
 
 		template_row = None
-		if draw_separators_between_lines:
-			template_row = BOX_ROW_BODY_SEPARATOR
-		if row_num == len(rows) - 1:
-			template_row = BOX_ROW_BODY_BOTTOM
-		elif row_num == 0 and has_header:
+		if row_num == 0 and has_header:
 			template_row = BOX_ROW_HEADER_BOTTOM_BODY_TOP
-
+		elif draw_separators_between_lines:
+			template_row = BOX_ROW_BODY_SEPARATOR
 		if template_row is not None:
 			fo.write(render_row(None))
 			fo.write("\n")
 
+	template_row = BOX_ROW_BODY_BOTTOM
+	fo.write(render_row(None))
+	fo.write("\n")
 	fo.flush()
 
 
