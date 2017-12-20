@@ -129,6 +129,7 @@ class Ignored(object):
 					json.dump(thelist, sys.stdout, indent="\t")
 					sys.stdout.write("\n")
 				else:
+					# TODO If the file name contains unprintable chars (like "Icon\r") this will produce an incorrect list. Consider adding an escape flavor like "python", "shell", "c", etc.
 					sys.stdout.write("\n".join(thelist))
 					sys.stdout.write("\n")
 
