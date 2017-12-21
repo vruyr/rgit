@@ -213,15 +213,8 @@ class Status(object):
 			ref = pathlib.PurePosixPath(ref_name)
 
 			for dst, (src, remote_name) in remote_refspecs.items():
-				if ref.match(dst):
-					# TODO PurePosixPath.match() have a little different logic than git's globs.
-					src_parts = list(pathlib.PurePosixPath(src).parts)
-					dst_parts = list(pathlib.PurePosixPath(dst).parts)
-					assert src_parts[-1] == "*"
-					assert dst_parts[-1] == "*"
-					remote_ref = src_parts[:-1]
-					remote_ref.extend(ref.parts[(len(dst_parts) - 1):])
-					remote_ref = "/".join(remote_ref)
+				remote_ref = match_refspec(ref_name, dst, src)
+				if remote_ref is not None:
 					remote_refs[(remote_name, remote_ref)] = (ref_name, object_id)
 					break
 			else:
@@ -297,6 +290,38 @@ class Status(object):
 			path_parts[:len(self._home_parts)] = "~"
 			path = pathlib.Path(*path_parts)
 		return path
+
+
+def match_refspec(ref, spec, other_spec):
+	# https://git-scm.com/book/en/v2/Git-Internals-The-Refspec
+	spec_pre, spec_asterisk, spec_post = spec.partition("*")
+	other_spec_pre, other_spec_asterisk, other_spec_post = other_spec.partition("*")
+
+	if spec_asterisk == "":
+		assert other_spec_asterisk == ""
+		return other_spec if ref == spec else None
+	else:
+		assert spec_asterisk == "*"
+		assert other_spec_asterisk == "*"
+
+	assert (
+		(other_spec_pre == "" or other_spec_pre[-1] == "/") and
+		(other_spec_post == "" or other_spec_post[0] == "/")
+	)
+	assert (
+		(spec_pre == "" or spec_pre[-1] == "/") and
+		(spec_post == "" or spec_post[0] == "/")
+	)
+
+	# TODO Double check this
+	prefix = ref[:len(spec_pre)]
+	infix = ref[len(spec_pre):(len(ref)-len(spec_post))]
+	suffix = ref[(len(ref)-len(spec_post)):]
+
+	if prefix == spec_pre and suffix == spec_post:
+		return other_spec_pre + infix + other_spec_post
+	else:
+		return None
 
 
 @command("add")
