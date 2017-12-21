@@ -44,11 +44,11 @@ class FileBasedConfiguration(object):
 			yield self.basedir / f
 
 	@property
-	def ignore_remotes(self):
-		for r in self._content.get("ignore.remotes", []):
+	def destination_remotes_ignore(self):
+		for r in self._content.get("destination.remotes.ignore", []):
 			yield r
 
 	@property
-	def ignore_folders(self):
-		for f in self._content.get("ignore.folders", []):
+	def destination_folders_ignore(self):
+		for f in self._content.get("destination.folders.ignore", []):
 			yield self.basedir / f

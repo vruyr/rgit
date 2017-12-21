@@ -158,13 +158,13 @@ class Status(object):
 		return None
 
 	async def matching_ignore_remote(self, url):
-		for remote_url_prefix in self._config.ignore_remotes:
+		for remote_url_prefix in self._config.destination_remotes_ignore:
 			if url_starts_with(url, remote_url_prefix):
 				return remote_url_prefix
 		return None
 
 	async def matching_ignore_folder(self, path):
-		for folder in self._config.ignore_folders:
+		for folder in self._config.destination_folders_ignore:
 			if folder.parts == path.parts[:len(folder.parts)]:
 				return folder
 		return None
