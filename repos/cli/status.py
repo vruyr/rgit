@@ -61,7 +61,7 @@ class Status(object):
 
 		set_status_msg(None)
 
-		sort_order = ["#", "Path", "Remotes", "Commits"]
+		sort_order = ["#", "Path", "Remotes", "Commits", "Refs"]
 		def cell_filter(*, row, column, value, width, fill):
 			if row == 0 or column == 1:
 				return str(value).ljust(width, fill)
