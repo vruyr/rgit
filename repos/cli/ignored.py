@@ -207,6 +207,7 @@ class IgnoreGroupReader(object):
 		with path.open("r") as fo:
 			for line in fo:
 				if line.startswith(start_marker):
+					# TODO Instead of converting to lowercase, use case-insensitive mapping and report any inconsistencies.
 					group = line[len(start_marker):].strip().lower()
 					if not group_name_pattern.match(group):
 						raise ValueError(f"invalid group name - {repr(group)}")

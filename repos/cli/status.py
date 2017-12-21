@@ -11,6 +11,7 @@ from .. import git
 # TODO Implement detached head detection in submodules.
 # TODO Fix broken `repos status --sh`
 # TODO Use `git check-attr` to find all unconfigured filters.
+# TODO Implement email address consistency checks in the history.
 
 
 @command("status")
