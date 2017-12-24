@@ -27,6 +27,13 @@ class Ignored(object):
 			),
 		)
 		parser.add_argument(
+			"--not-in-group", "-x",
+			dest="not_in_groups",
+			action="append",
+			default=[],
+			help="",
+		)
+		parser.add_argument(
 			"--list", "-l",
 			dest="show_lists_only",
 			action="store",
@@ -52,6 +59,7 @@ class Ignored(object):
 
 		opts.folders = [pathlib.Path(f).resolve() for f in opts.folders]
 		opts.groups = set(opts.groups)
+		opts.not_in_groups = set(opts.not_in_groups)
 
 		ignore_group_reader = IgnoreGroupReader()
 
@@ -106,6 +114,8 @@ class Ignored(object):
 					assert len(groups) <= 1
 					group = groups[0]
 				if opts.groups and group not in opts.groups:
+					continue
+				if group in opts.not_in_groups:
 					continue
 				ignore_file_fspath = os.fspath(ignore_file) if ignore_file is not None else None
 				results.setdefault(group, {}).setdefault(worktree_fspath, {})[path] = [
