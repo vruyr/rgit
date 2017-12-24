@@ -1,4 +1,4 @@
-#{{{ Transient
+#{{{ Cache
 __pycache__/
 *.pyc
 /.idea/
