@@ -167,13 +167,15 @@ class Ignored(object):
 			elif opts.format == "table":
 				for group, repos in results.items():
 					rows = [
-						["Work-tree Path", "File Path", "Ignore File Path", "Ignore File Line", "Pattern"]
+						["Work-tree Path", "File Path", "Source", "Pattern"]
 					]
 					for path, files in repos.items():
-						for file, pattern_tuple in files.items():
+						for file, (ignore_path, ignore_line, ignore_pattern) in files.items():
 							if file != repr(file)[1:-1]:
 								file = repr(file)
-							rows.append([path, file, *pattern_tuple])
+							rows.append([
+								path, file, f"{pathlib.Path(ignore_path).relative_to(path)}:{ignore_line}", ignore_pattern
+							])
 					draw_table(
 						rows,
 						title=group,
