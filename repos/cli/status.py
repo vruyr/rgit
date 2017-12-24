@@ -12,6 +12,7 @@ from .. import git
 # TODO Fix broken `repos status --sh`
 # TODO Use `git check-attr` to find all unconfigured filters.
 # TODO Implement email address consistency checks in the history.
+# TODO If a repo has more than one destination remote, chances are they have a same set of refs.
 
 
 @command("status")
