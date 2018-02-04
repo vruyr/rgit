@@ -251,6 +251,7 @@ class Status(object):
 			if not branch_remote or branch_remote not in remotes:
 				dangling_refs.append(ref)
 				continue
+			#TODO If the remote branch is deleted but the local branch is still tracking it, this will throw a KeyError
 			remote_ref, remote_object_id = remote_refs[(branch_remote, branch_merge)]
 			tracking_refs.append((ref, object_id, remote_ref, remote_object_id))
 
