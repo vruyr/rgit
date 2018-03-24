@@ -52,3 +52,8 @@ class FileBasedConfiguration(object):
 	def destination_folders_ignore(self):
 		for f in self._content.get("destination.folders.ignore", []):
 			yield self.basedir / f
+
+	@property
+	def scan_folders_ignore(self):
+		for f in self._content.get("scan.folders.ignore", []):
+			yield self.basedir / f

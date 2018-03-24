@@ -22,9 +22,10 @@ class Scan(object):
 		return "walk the filesystem to discover new repositories"
 
 	def __init__(self):
-		pass
+		self._config = None
 
 	async def execute(self, *, opts, config):
+		self._config = config
 		repositories = set(config.repositories)
 		counter = 0
 		for starting_folder in opts.starting_folders:
@@ -39,9 +40,14 @@ class Scan(object):
 				if repo is not None:
 					del dirs[:]
 					# TODO This will report duplication repos if symlinks are used (e.g. folders in windows %USERPROFILE%).
-					if pathlib.Path(repo) not in repositories:
-						set_status_msg(None)
-						await self.report_new_repo(repo)
+					p = pathlib.Path(repo)
+					if p not in repositories:
+						for folder in self._config.scan_folders_ignore:
+							if folder.parts == p.parts[:len(folder.parts)]:
+								break
+						else:
+							set_status_msg(None)
+							await self.report_new_repo(repo)
 
 				counter += 1
 				if counter >= 1000:
