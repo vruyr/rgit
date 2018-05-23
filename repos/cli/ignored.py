@@ -184,8 +184,13 @@ class Ignored(object):
 						for file, (ignore_path, ignore_line, ignore_pattern) in files.items():
 							if file != repr(file)[1:-1]:
 								file = repr(file)
+							if ignore_path is not None:
+								ignore_path_relative = pathlib.Path(ignore_path).relative_to(path)
+								ignore_rule_location = f"{ignore_path_relative}:{ignore_line}"
+							else:
+								ignore_rule_location = "<unknown>"
 							rows.append([
-								path, file, f"{pathlib.Path(ignore_path).relative_to(path)}:{ignore_line}", ignore_pattern
+								path, file, ignore_rule_location, ignore_pattern
 							])
 					draw_table(
 						rows,
