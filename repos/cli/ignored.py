@@ -82,7 +82,7 @@ class Ignored(object):
 				path
 				for _, path in filter(
 					lambda x: x[0] == "ignored",
-					await git.status(repo, "--ignored")
+					await git.status(repo, "--ignored=matching")
 				)
 			]
 			if not ignored_files:
