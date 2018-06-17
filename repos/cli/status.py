@@ -13,6 +13,8 @@ from .. import git
 # TODO Use `git check-attr` to find all unconfigured filters.
 # TODO Implement email address consistency checks in the history.
 # TODO If a repo has more than one destination remote, chances are they have a same set of refs.
+# TODO Implement worktree support.
+# TODO Detect if the worktree is in the middle of merge, rebase, or anything like that.
 
 
 @command("status")

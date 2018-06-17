@@ -6,6 +6,9 @@ from ..tools import set_status_msg, add_status_msg
 from .registry import command
 
 
+# TODO Implement worktree support.
+
+
 @command("scan")
 class Scan(object):
 	@classmethod
