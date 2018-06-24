@@ -15,6 +15,7 @@ from .. import git
 # TODO If a repo has more than one destination remote, chances are they have a same set of refs.
 # TODO Implement worktree support.
 # TODO Detect if the worktree is in the middle of merge, rebase, or anything like that.
+# TODO Detect if the repo is missing and report that instead of crashing.
 
 
 @command("status")
