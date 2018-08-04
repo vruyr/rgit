@@ -16,6 +16,8 @@ from .. import git
 # TODO Implement worktree support.
 # TODO Detect if the worktree is in the middle of merge, rebase, or anything like that.
 # TODO Detect if the repo is missing and report that instead of crashing.
+# TODO Reconsider semantics of the "Commits" column. Maybe having it show commits that do not exist in any/all of destination remotes would be better. Tracking references that are head of or diverged from upsteam could be done in the "Refs" column or a new column.
+# TODO git ls-files --eol && file --mime-encoding
 
 
 @command("status")
