@@ -16,6 +16,11 @@ setup(
 			"repos", "repos.*",
 		],
 	),
+	entry_points={
+		"console_scripts": [
+			"repos = repos.__main__:_ssmain",
+		],
+	},
 	package_data={
 	},
 	install_requires=[
