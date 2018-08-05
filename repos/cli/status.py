@@ -184,6 +184,8 @@ class Status(object):
 		async for remote_name, remote_config in git.enumerate_remotes(repo):
 			remote_url = remote_config.pop("url")
 			remote_fetch = remote_config.pop("fetch")
+			# remote_push = remote_config.pop("push")
+			# TODO Implement remote.<name>.push config support. This needs a redesign of local to remote branch mapping from a single link to a double link (fetch and push).
 			if remote_config:
 				unsupported_remote_configs[remote_name] = remote_config
 			remote = d_remote_t(remote_url, remote_fetch)
@@ -203,6 +205,7 @@ class Status(object):
 		for remote_name, remote_config in itertools.chain(remotes.items(), other_remotes.items()):
 			# https://git-scm.com/book/en/v2/Git-Internals-The-Refspec
 			for refspec in remote_config.fetch:
+				# TODO Extract refspec parsing to a standalone function.
 				non_ff = False
 				if refspec[0] == "+":
 					non_ff = True
