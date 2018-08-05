@@ -11,8 +11,12 @@ def _smain(args):
 	loop.run_until_complete(cli.main(args, loop=loop))
 
 
-if __name__ == "__main__":
+def _ssmain():
 	try:
 		sys.exit(_smain(sys.argv[1:]))
 	except KeyboardInterrupt:
 		sys.stderr.write("\n")
+
+
+if __name__ == "__main__":
+	_ssmain()
