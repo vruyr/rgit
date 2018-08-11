@@ -3,4 +3,5 @@ __pycache__/
 *.pyc
 /.idea/
 .DS_Store
+/repos.egg-info/
 #}}}
