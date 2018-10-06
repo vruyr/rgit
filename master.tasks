@@ -1,3 +1,4 @@
-☐ Add support for `git-worktree`s.
-☐ Implement routines to deep complare two ".git" repositories for equality – all the objects, all refs, all config values, and all other unknown files. Use exclusion principle.
-☐ Add a command that will run `git clean -Xdf -- {all files of a named ignore group}`. Make that part of the configuration file to eliminate accidental deletion of imporant ignored files because of wrong command line arguments.
+☐	Add support for `git-worktree`s.
+☐	Implement routines to deep complare two ".git" repositories for equality – all the objects, all refs, all config values, and all other unknown files. Use exclusion principle.
+☐	Add a command that will run `git clean -Xdf -- {all files of a named ignore group}`. Make that part of the configuration file to eliminate accidental deletion of imporant ignored files because of wrong command line arguments.
+☐	Implement a check of for submodules to be fully pushed.
