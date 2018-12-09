@@ -1,4 +1,9 @@
 ☐	Add support for `git-worktree`s.
-☐	Implement routines to deep complare two ".git" repositories for equality – all the objects, all refs, all config values, and all other unknown files. Use exclusion principle.
+☐	Implement routines to deep compare two ".git" repositories for equality – all the objects, all refs, all config values, and all other unknown files. Use exclusion principle.
 ☐	Add a command that will run `git clean -Xdf -- {all files of a named ignore group}`. Make that part of the configuration file to eliminate accidental deletion of imporant ignored files because of wrong command line arguments.
 ☐	Implement a check of for submodules to be fully pushed.
+☐	scan should look for and report repositories sitting inside other repositories that are not proper submodules – not committed, committed but not in .gitmodules.
+☐	status should report submodules that does not exist in the remote specified in .gitmodules file.
+☐	transplant – a new command that places a repository from specified url into specified folder and if the folder is empty checks out the specified ref
+	$ repos transplant sync://vruyr/config/home.git --branch master --git-dir ~/.xgit/home --worktree ~
+☐	release – a new command that checks the status of a repo and deletes it if it's clean and all of ignored files are included in the command line whitelist.
