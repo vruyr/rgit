@@ -1,9 +1,14 @@
-☐	Add support for `git-worktree`s.
-☐	Implement routines to deep compare two ".git" repositories for equality – all the objects, all refs, all config values, and all other unknown files. Use exclusion principle.
-☐	Add a command that will run `git clean -Xdf -- {all files of a named ignore group}`. Make that part of the configuration file to eliminate accidental deletion of imporant ignored files because of wrong command line arguments.
-☐	Implement a check of for submodules to be fully pushed.
-☐	scan should look for and report repositories sitting inside other repositories that are not proper submodules – not committed, committed but not in .gitmodules.
-☐	status should report submodules that does not exist in the remote specified in .gitmodules file.
-☐	transplant – a new command that places a repository from specified url into specified folder and if the folder is empty checks out the specified ref
-	$ repos transplant sync://vruyr/config/home.git --branch master --git-dir ~/.xgit/home --worktree ~
-☐	release – a new command that checks the status of a repo and deletes it if it's clean and all of ignored files are included in the command line whitelist.
+TODO:
+	☐	Add support for `git-worktree`s.
+	☐	Implement routines to deep compare two ".git" repositories for equality – all the objects, all refs, all config values, and all other unknown files. Use exclusion principle.
+	☐	Add a command that will run `git clean -Xdf -- {all files of a named ignore group}`. Make that part of the configuration file to eliminate accidental deletion of imporant ignored files because of wrong command line arguments.
+	☐	Implement a check of for submodules to be fully pushed.
+	☐	scan should look for and report repositories sitting inside other repositories that are not proper submodules – not committed, committed but not in .gitmodules.
+	☐	status should report submodules that does not exist in the remote specified in .gitmodules file.
+	☐	transplant – a new command that places a repository from specified url into specified folder and if the folder is empty checks out the specified ref
+		$ repos transplant sync://vruyr/config/home.git --branch master --git-dir ~/.xgit/home --worktree ~
+	☐	release – a new command that checks the status of a repo and deletes it if it's clean and all of ignored files are included in the command line whitelist.
+	☐	repos behind: show all repositories where the remote has been updated @created(2019-01-06T16:58:49-0500)
+	☐	repos find-object "$object_id": git -C "$repo" cat-file -e "$object_id" 2>/dev/null && echo "$repo" @created(2019-01-06T16:58:49-0500)
+	☐	repos tree ~: Show the filesystem content excluding any tracked files and folders. @created(2019-01-06T16:58:49-0500)
+	☐	repos purge ~: `git uninit.sh` all repositories gitdir or worktree of which is in provided paths @created(2019-01-06T16:58:49-0500)
