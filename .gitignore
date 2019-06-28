@@ -1,7 +1,10 @@
+#{{{ Transient
+.DS_Store
+#}}}
+
 #{{{ Cache
 __pycache__/
 *.pyc
 /.idea/
-.DS_Store
 /repos.egg-info/
 #}}}
