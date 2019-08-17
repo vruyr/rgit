@@ -186,6 +186,12 @@ class Status(object):
 			remote_fetch = remote_config.pop("fetch")
 			# remote_push = remote_config.pop("push")
 			# TODO Implement remote.<name>.push config support. This needs a redesign of local to remote branch mapping from a single link to a double link (fetch and push).
+
+			#TODO Make sure these remote configurations do not affect commit statistics.
+			remote_config.pop("receivepack", None)
+			remote_config.pop("uploadpack", None)
+			remote_config.pop("skipfetchall", None)
+
 			if remote_config:
 				unsupported_remote_configs[remote_name] = remote_config
 			remote = d_remote_t(remote_url, remote_fetch)
