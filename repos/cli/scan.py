@@ -17,7 +17,16 @@ class Scan(object):
 			"starting_folders",
 			metavar="PATH",
 			nargs="+",
-			help="starting folders from where to conduct the search"
+			help="starting folders from where to conduct the search",
+		)
+		parser.add_argument(
+			"--ignore", "-i",
+			dest="scan_folders_ignore",
+			metavar="PATH",
+			action="append",
+			type=pathlib.Path,
+			default=[],
+			help="do not scan specified folders and their subfolders",
 		)
 
 	@classmethod
@@ -25,10 +34,13 @@ class Scan(object):
 		return "walk the filesystem to discover new repositories"
 
 	def __init__(self):
-		self._config = None
+		pass
 
 	async def execute(self, *, opts, config):
-		self._config = config
+		dirs_to_skip = {
+			*(opts.scan_folders_ignore),
+			*(config.scan_folders_ignore)
+		}
 		repositories = set(config.repositories)
 		counter = 0
 		for starting_folder in opts.starting_folders:
@@ -45,7 +57,7 @@ class Scan(object):
 					# TODO This will report duplication repos if symlinks are used (e.g. folders in windows %USERPROFILE%).
 					p = pathlib.Path(repo)
 					if p not in repositories:
-						for folder in self._config.scan_folders_ignore:
+						for folder in dirs_to_skip:
 							if folder.parts == p.parts[:len(folder.parts)]:
 								break
 						else:
