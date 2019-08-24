@@ -73,7 +73,9 @@ class Status(object):
 				return str(value).ljust(width, fill)
 			if column == 2 and str(value).strip() == "-":
 				return str(value).strip().center(width, fill)
-			return str(value).rjust(width, fill)
+			if isinstance(value, (int, float)):
+				return str(value).rjust(width, fill)
+			return str(value).ljust(width, fill)
 
 		if statistics_table:
 			statistics_table_sorted = []
@@ -191,6 +193,9 @@ class Status(object):
 			remote_config.pop("receivepack", None)
 			remote_config.pop("uploadpack", None)
 			remote_config.pop("skipfetchall", None)
+
+			#TODO Implement calculating number of refs with commits not present in the local repo.
+			ignored_remote_refs = remote_config.pop("repos-ignore-refs", None)
 
 			if remote_config:
 				unsupported_remote_configs[remote_name] = remote_config
