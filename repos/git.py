@@ -1,4 +1,4 @@
-import asyncio, subprocess, os, pathlib
+import asyncio, subprocess, os, pathlib, re
 
 
 async def status(repo, *args):
@@ -101,17 +101,30 @@ async def get_remotes(repo):
 	return (await git(repo, "remote")).splitlines()
 
 
+async def get_config(repo, name, *, returncode_ok=None):
+	text = await git(repo, "config", "--get-all", "--null", name, returncode_ok=returncode_ok)
+	assert not text or text.endswith("\0"), repr(text)
+	text = text[:-1]
+	for v in text.split("\0"):
+		yield v
+
+
+async def get_config_prefix(repo, prefix, returncode_ok=None):
+	prefix = prefix.rstrip(".")
+	pattern = f"{re.escape(prefix)}\\..*"
+	#TODO Switch to using `git config --null` and get rid of `walk_config_regex_output`.
+	text = await git(repo, "config", "--get-regex", pattern, returncode_ok=returncode_ok)
+	for x in walk_config_regex_output(text, f"{prefix}."):
+		yield x
+
+
 async def get_config_remote(repo, remote):
-	text = await git(repo, "config", "--get-regex", f"remote\\.{remote}\\..*")
-	for x in walk_config_regex_output(text, f"remote.{remote}."):
+	async for x in get_config_prefix(repo, f"remote.{remote}"):
 		yield x
 
 
 async def get_config_branch(repo, branch, *, returncode_ok=None):
-	text = await git(
-		repo, "config", "--get-regex", f"branch\\.{branch}\\..*", returncode_ok=returncode_ok
-	)
-	for x in walk_config_regex_output(text, f"branch.{branch}."):
+	async for x in get_config_prefix(repo, f"branch.{branch}", returncode_ok=returncode_ok):
 		yield x
 
 
@@ -184,9 +197,9 @@ async def git(
 		def assert_returncode(returncode):
 			return returncode == (returncode_ok if returncode_ok is not None else 0)
 		returncode_checker = assert_returncode
-	assert returncode_checker(p.returncode), (repo, p.returncode, stderr)
+	assert returncode_checker(p.returncode), (repo, args, p.returncode, stderr)
 	if not stderr_ok:
-		assert not stderr, (repo, p.returncode, stderr)
+		assert not stderr, (repo, args, p.returncode, stderr)
 	return stdout.decode("utf_8")
 
 

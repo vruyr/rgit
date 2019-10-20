@@ -181,6 +181,10 @@ class Status(object):
 		remotes = {}
 		other_remotes = {}
 
+		ignored_remote_configs = []
+		async for ignores in git.get_config(repo, "repos.ignore-remote-config", returncode_ok=lambda x: True):
+			ignored_remote_configs.extend(re.split(r"\s+", ignores))
+
 		unsupported_remote_configs = {}
 		d_remote_t = collections.namedtuple("d_remote_t", ["url", "fetch"])
 		async for remote_name, remote_config in git.enumerate_remotes(repo):
@@ -193,6 +197,8 @@ class Status(object):
 			remote_config.pop("receivepack", None)
 			remote_config.pop("uploadpack", None)
 			remote_config.pop("skipfetchall", None)
+			for ignored in ignored_remote_configs:
+				remote_config.pop(ignored, None)
 
 			#TODO Implement calculating number of refs with commits not present in the local repo.
 			ignored_remote_refs = remote_config.pop("repos-ignore-refs", None)
