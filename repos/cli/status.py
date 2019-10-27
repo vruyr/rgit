@@ -189,7 +189,12 @@ class Status(object):
 		d_remote_t = collections.namedtuple("d_remote_t", ["url", "fetch"])
 		async for remote_name, remote_config in git.enumerate_remotes(repo):
 			remote_url = remote_config.pop("url")
-			remote_fetch = remote_config.pop("fetch")
+			#TODO Implement support for more than one fetch entry.
+			remote_fetch = remote_config.pop("fetch", None)
+			if remote_fetch is None:
+				#TODO Reconsider the logic here - if there are no fetch refspecs, does it mean we have nothing to do?
+				continue
+			#TODO Implement tag support.
 			# remote_push = remote_config.pop("push")
 			# TODO Implement remote.<name>.push config support. This needs a redesign of local to remote branch mapping from a single link to a double link (fetch and push).
 
