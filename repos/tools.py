@@ -225,13 +225,19 @@ def url_starts_with(url, prefix):
 
 
 def gen_sort_index(values, sort_order):
-	sort_order_dict = dict((e, i) for i, e in enumerate(sort_order))
-	sort_index = list(range(len(values)))
-	num_sorted = len(sort_order)
+	values_len = len(values)
+	sort_first, sort_last = sort_order
+	sort_last_len = len(sort_last)
+	sort_order_dict = {}
+	sort_order_dict.update({e: i for i, e in enumerate(sort_first)})
+	sort_order_dict.update({e: (values_len - sort_last_len + i) for i, e in enumerate(sort_last)})
+	sort_index = list(range(values_len))
+	sort_order_for_unspecified = len(sort_first)
 	def sortkey(i):
 		column = values[i]
-		return (sort_order_dict.get(column, num_sorted), column)
-	return sorted(sort_index, key=sortkey)
+		return (sort_order_dict.get(column, sort_order_for_unspecified), column)
+	sort_index = sorted(sort_index, key=sortkey)
+	return sort_index
 
 
 def strict_int(x):
