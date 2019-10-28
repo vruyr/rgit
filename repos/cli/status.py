@@ -1,4 +1,4 @@
-import sys, os, pathlib, re, collections, shlex, itertools
+import sys, os, pathlib, re, collections, shlex, itertools, json
 from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with, gen_sort_index, is_path_in
 from .registry import command
 from .. import git
@@ -30,6 +30,13 @@ class Status(object):
 			action="store_true",
 			default=False,
 			help="display paths suitable to be copy-pasted into shell",
+		)
+		parser.add_argument(
+			"--json",
+			dest="output_json",
+			action="store_true",
+			default=False,
+			help="output the result in JSON format instead of a rendered table view",
 		)
 		parser.add_argument(
 			"folders",
@@ -87,11 +94,23 @@ class Status(object):
 				statistics_table_sorted.append(row_sorted)
 			statistics_table = statistics_table_sorted
 
-		draw_table(statistics_table, fo=sys.stdout,
-			title="Unclean Repositories",
-			has_header=True,
-			cell_filter=cell_filter
-		)
+		if opts.output_json:
+			result = {}
+			header_row = statistics_table[0]
+			num_columns = len(header_row)
+			for row in statistics_table[1:]:
+				r = {header_row[i]:row[i] for i in range(num_columns)}
+				result[r["Path"]] = r
+				del r["Path"]
+				del r["#"]
+			sys.stdout.write(json.dumps(result, indent="\t"))
+			sys.stdout.write("\n")
+		else:
+			draw_table(statistics_table, fo=sys.stdout,
+				title="Unclean Repositories",
+				has_header=True,
+				cell_filter=cell_filter
+			)
 
 	async def render_statistics_row(self, statistics_table, repo, statistics):
 		if not statistics.keys():
