@@ -67,15 +67,18 @@ class Status(object):
 				continue
 			add_status_msg("*")
 			statistics = {}
-			await self.get_repo_remotes(repo, statistics)
-			await self.get_repo_commit_statistics(repo, statistics)
-			await self.get_repo_status_stats(repo, statistics)
+			if repo.exists():
+				await self.get_repo_remotes(repo, statistics)
+				await self.get_repo_commit_statistics(repo, statistics)
+				await self.get_repo_status_stats(repo, statistics)
+			else:
+				statistics["Notes"] = "missing"
 			await self.render_statistics_row(statistics_table, repo, statistics)
 
 		set_status_msg(None)
 
 		sort_order = [
-			["#", "Path", "Remotes", "Commits", "Refs"],
+			["#", "Path", "Notes", "Remotes", "Commits", "Refs"],
 			["Unsupported Remote Config"],
 		]
 		def cell_filter(*, row, column, value, width, fill):
@@ -295,7 +298,7 @@ class Status(object):
 					# TODO Implement refs/tags/ and refs/notes/ support.
 					pass
 				else:
-					raise ValueError(f"Unrecognized Reference {ref_name}")
+					raise ValueError(f"Unrecognized Reference {ref_name} in repo {repo}")
 
 		dangling_refs = []
 		tracking_refs = []
