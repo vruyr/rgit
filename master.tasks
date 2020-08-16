@@ -13,3 +13,5 @@ TODO:
 	☐	repos tree ~: Show the filesystem content excluding any tracked files and folders. @created(2019-01-06T16:58:49-0500)
 	☐	repos purge ~: `git uninit.sh` all repositories gitdir or worktree of which is in provided paths @created(2019-01-06T16:58:49-0500)
 	☐	Implement all features to be available for a remote machine though ssh. @created(2020-01-14T10:10:22-0500)
+	☐	The `ignored` command crashes with an exception if a repo or worktree does not exist. @created(2020-05-02T09:37:16-0400)
+	☐	The parameter `ignroed` command takes should not filter out entire worktrees but rather individual paths across all repositories' worktrees. @created(2020-05-02T09:52:40-0400)
