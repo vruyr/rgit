@@ -50,6 +50,7 @@ class Scan(object):
 				if ".git" in dirs or ".git" in files:
 					repo = os.path.join(root, ".git")
 				elif "refs" in dirs and "objects" in dirs and "HEAD" in files:
+					#TODO If GIT_OBJECT_DIRECTORY env var is set, the repo might not have the objects folder. See https://github.com/git/git/blob/v2.28.0/setup.c#L328-L338
 					repo = root
 
 				if repo is not None:
