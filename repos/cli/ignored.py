@@ -1,7 +1,7 @@
 import re, os, sys, pathlib
 from .registry import command
 from .. import git
-from ..tools import is_path_in, strict_int, add_status_msg, set_status_msg, draw_table
+from ..tools import is_path_in, path_relative_to_or_unchanged, strict_int, add_status_msg, set_status_msg, draw_table
 
 
 @command("ignored")
@@ -185,7 +185,7 @@ class Ignored(object):
 							if file != repr(file)[1:-1]:
 								file = repr(file)
 							if ignore_path is not None:
-								ignore_path_relative = pathlib.Path(ignore_path).relative_to(path)
+								ignore_path_relative = path_relative_to_or_unchanged(path, ignore_path)
 								ignore_rule_location = f"{ignore_path_relative}:{ignore_line}"
 							else:
 								ignore_rule_location = "<unknown>"

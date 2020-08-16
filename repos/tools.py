@@ -247,3 +247,10 @@ def strict_int(x):
 
 def is_path_in(parent, child):
 	return child.parts[:len(parent.parts)] == parent.parts
+
+
+def path_relative_to_or_unchanged(root_path, target_path):
+	try:
+		return pathlib.Path(target_path).relative_to(root_path)
+	except ValueError:
+		return target_path
