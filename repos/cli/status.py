@@ -67,12 +67,15 @@ class Status(object):
 				continue
 			add_status_msg("*")
 			statistics = {}
-			if repo.exists():
+			gitdir_exists, worktree_exists = await git.exists(repo)
+			if (gitdir_exists, worktree_exists) in ((True, True), (True, None)):
 				await self.get_repo_remotes(repo, statistics)
 				await self.get_repo_commit_statistics(repo, statistics)
 				await self.get_repo_status_stats(repo, statistics)
+			elif (gitdir_exists, worktree_exists) in ((True, False),):
+				statistics["Notes"] = "missing worktree"
 			else:
-				statistics["Notes"] = "missing"
+				statistics["Notes"] = "missing repo"
 			await self.render_statistics_row(statistics_table, repo, statistics)
 
 		set_status_msg(None)

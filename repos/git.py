@@ -160,6 +160,9 @@ async def git(
 	*args,
 	stderr_ok=False, returncode_ok=None, stdin=None, worktree=None, cwd=WORKTREE
 ):
+	if not isinstance(repo, pathlib.Path):
+		repo = pathlib.Path(repo)
+
 	if worktree is TOPLEVEL:
 		worktree = await toplevel(repo)
 	if worktree is None and repo.name == ".git":
@@ -217,3 +220,45 @@ def walk_config_regex_output(text, prefix):
 		key = key[len(prefix):].strip()
 		value = value.strip()
 		yield key, value
+
+
+async def exists(gitdir):
+	"""
+	Returns a tuple (gitdir_exists, worktree_exists).
+	"""
+
+	if not isinstance(gitdir, pathlib.Path):
+		gitdir = pathlib.Path(gitdir)
+
+	if not gitdir.exists():
+		return (False, False)
+
+	config_file_path = gitdir / "config"
+
+	#TODO Figure out a way to make git read config without specifying the config file path even in repositories with non-existent core.worktree config values.
+	#TODO Only call "git" executable from a single place - it should be flexible enough to accommodate all the needs.
+
+	p = await asyncio.create_subprocess_exec(
+		"git", "config", "--file", config_file_path, "--get", "core.worktree",
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE,
+		stdin=subprocess.DEVNULL,
+		env=update_env(
+			GIT_TERMINAL_PROMPT="0"
+		),
+		encoding=None,
+	)
+	stdout, stderr = await p.communicate()
+	assert not stderr, (stderr,)
+
+	stdout = stdout.decode("UTF-8") #TODO Don't assume the encoding.
+	stdout = stdout.rstrip("\r\n")
+
+	if stdout:
+		worktree = pathlib.Path(stdout)
+	elif gitdir.name == ".git":
+		worktree = gitdir.parent
+	else:
+		worktree = None
+
+	return (True, worktree.exists() if worktree is not None else None)
