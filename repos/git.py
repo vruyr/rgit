@@ -239,7 +239,7 @@ async def exists(gitdir):
 	#TODO Only call "git" executable from a single place - it should be flexible enough to accommodate all the needs.
 
 	p = await asyncio.create_subprocess_exec(
-		"git", "config", "--file", config_file_path, "--get", "core.worktree",
+		"git", "config", "--file", os.fspath(config_file_path), "--get", "core.worktree",
 		stdout=subprocess.PIPE,
 		stderr=subprocess.PIPE,
 		stdin=subprocess.DEVNULL,
