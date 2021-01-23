@@ -261,6 +261,9 @@ class Status(object):
 				if refspec[0] == "+":
 					non_ff = True
 					refspec = refspec[1:]
+				if refspec[0] == "^":
+					#TODO Implement support for negative refspecs.
+					continue
 				src, sep, dst = refspec.partition(":")
 				assert sep == ":"
 				remote_refspecs[dst] = (src, remote_name)
