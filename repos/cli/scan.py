@@ -16,7 +16,7 @@ class Scan(object):
 		parser.add_argument(
 			"starting_folders",
 			metavar="PATH",
-			nargs="+",
+			nargs="*",
 			help="starting folders from where to conduct the search",
 		)
 		parser.add_argument(
@@ -41,9 +41,10 @@ class Scan(object):
 			*(opts.scan_folders_ignore),
 			*(config.scan_folders_ignore)
 		}
+		scan_folders = opts.starting_folders or list(config.scan_folders)
 		repositories = set(config.repositories)
 		counter = 0
-		for starting_folder in opts.starting_folders:
+		for starting_folder in scan_folders:
 			for root, dirs, files in os.walk(starting_folder, topdown=True):
 				repo = None
 
