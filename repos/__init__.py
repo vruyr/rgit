@@ -1,3 +1,3 @@
 import sys
-assert sys.version_info[:2] in [(3, 6), (3, 7), (3, 8)]
+assert sys.version_info[0] == 3 and sys.version_info[1] >= 6
 from . import cli as _cli
