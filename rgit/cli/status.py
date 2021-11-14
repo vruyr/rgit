@@ -9,7 +9,7 @@ from .. import git
 # TODO Implement reporting commits in submodules committed to super-repo but not yet pushed in the submodule.
 # TODO Implement configuration and hook checking.
 # TODO Implement detached head detection in submodules.
-# TODO Fix broken `repos status --sh`
+# TODO Fix broken `rgit status --sh`
 # TODO Use `git check-attr` to find all unconfigured filters.
 # TODO Implement email address consistency checks in the history.
 # TODO If a repo has more than one destination remote, chances are they have a same set of refs.
@@ -210,7 +210,7 @@ class Status(object):
 		other_remotes = {}
 
 		ignored_remote_configs = []
-		async for ignores in git.get_config(repo, "repos.ignore-remote-config", returncode_ok=lambda x: True):
+		async for ignores in git.get_config(repo, "rgit.ignore-remote-config", returncode_ok=lambda x: True):
 			ignored_remote_configs.extend(re.split(r"\s+", ignores))
 
 		unsupported_remote_configs = {}
@@ -235,7 +235,7 @@ class Status(object):
 				remote_config.pop(ignored, None)
 
 			#TODO Implement calculating number of refs with commits not present in the local repo.
-			ignored_remote_refs = remote_config.pop("repos-ignore-refs", None)
+			ignored_remote_refs = remote_config.pop("rgit-ignore-refs", None)
 
 			if remote_config:
 				unsupported_remote_configs[remote_name] = remote_config

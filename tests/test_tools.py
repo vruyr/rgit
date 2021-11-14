@@ -3,7 +3,7 @@ from . import get_toplevel
 
 
 sys.path.insert(0, get_toplevel())
-import repos.tools # pylint: disable=wrong-import-position,wrong-import-order
+import rgit.tools # pylint: disable=wrong-import-position,wrong-import-order
 
 
 class TestTools(unittest.TestCase):
@@ -137,5 +137,5 @@ class TestTools(unittest.TestCase):
 		]
 		for url, prefix, expected in test_data:
 			self.assertIs(
-				repos.tools.url_starts_with(url, prefix), expected, (url, prefix, expected)
+				rgit.tools.url_starts_with(url, prefix), expected, (url, prefix, expected)
 			)

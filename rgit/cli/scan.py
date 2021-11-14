@@ -56,7 +56,7 @@ class Scan(object):
 
 				if repo is not None:
 					del dirs[:]
-					# TODO This will report duplication repos if symlinks are used (e.g. folders in windows %USERPROFILE%).
+					# TODO This will report duplicate repos if symlinks are used (e.g. folders in windows %USERPROFILE%).
 					p = pathlib.Path(repo)
 					if p not in repositories:
 						for folder in dirs_to_skip:

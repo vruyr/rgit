@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
 
-# rm -rf _build && python3 -m pip install --target=_build/stuff . && python3 -m zipapp -o "_build/repos-$(git describe)-$(python3 -c 'import sys; print(f"py{sys.version_info.major}{sys.version_info.minor}")').pyz" --main repos.__main__:_ssmain -p "/usr/bin/env python3" _build/stuff
+# rm -rf _build && python3 -m pip install --target=_build/stuff . && python3 -m zipapp -o "_build/rgit-$(git describe)-$(python3 -c 'import sys; print(f"py{sys.version_info.major}{sys.version_info.minor}")').pyz" --main rgit.__main__:_ssmain -p "/usr/bin/env python3" _build/stuff
 
 
 setup(
-	name="repos",
+	name="rgit",
 	version="0.0.0",
 	description="",
 	url="",
@@ -13,12 +13,12 @@ setup(
 	packages=find_packages(
 		".",
 		include=[
-			"repos", "repos.*",
+			"rgit", "rgit.*",
 		],
 	),
 	entry_points={
 		"console_scripts": [
-			"repos = repos.__main__:_ssmain",
+			"rgit = rgit.__main__:_ssmain",
 		],
 	},
 	package_data={
