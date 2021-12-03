@@ -63,15 +63,18 @@ class Scan(object):
 							if folder.parts == p.parts[:len(folder.parts)]:
 								break
 						else:
-							set_status_msg(None)
+							if opts.show_progress:
+								set_status_msg(None)
 							await self.report_new_repo(repo)
 
 				counter += 1
 				if counter >= 1000:
-					add_status_msg(".")
+					if opts.show_progress:
+						add_status_msg(".")
 					counter = 0
 
-		set_status_msg(None)
+		if opts.show_progress:
+			set_status_msg(None)
 
 	async def report_new_repo(self, path):
 		sys.stdout.write(path + "\n")

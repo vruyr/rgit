@@ -63,9 +63,11 @@ class Status(object):
 
 		for repo in self._config.repositories:
 			if opts.folders and not any(is_path_in(f, repo) for f in opts.folders):
-				add_status_msg("-")
+				if opts.show_progress:
+					add_status_msg("-")
 				continue
-			add_status_msg("*")
+			if opts.show_progress:
+				add_status_msg("*")
 			statistics = {}
 			gitdir_exists, worktree_exists = await git.exists(repo)
 			if (gitdir_exists, worktree_exists) in ((True, True), (True, None)):
@@ -78,7 +80,8 @@ class Status(object):
 				statistics["Notes"] = "missing repo"
 			await self.render_statistics_row(statistics_table, repo, statistics)
 
-		set_status_msg(None)
+		if opts.show_progress:
+			set_status_msg(None)
 
 		sort_order = [
 			["#", "Path", "Notes", "Remotes", "Commits", "Refs"],

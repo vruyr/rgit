@@ -1,4 +1,4 @@
-import argparse, pathlib
+import argparse, pathlib, sys
 from .. import configuration, constants
 from . import registry, scan, status, ignored
 
@@ -30,6 +30,14 @@ def _parse_args(args=None):
 		action="store",
 		metavar="PATH",
 		default=None,
+	)
+
+	parser.add_argument(
+		"--dont-show-progress",
+		dest="show_progress",
+		action="store_false",
+		default=sys.stderr.isatty(),
+		help="do not display display intermediary messages while executing",
 	)
 
 	subparsers = parser.add_subparsers(
