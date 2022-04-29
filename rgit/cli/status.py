@@ -83,8 +83,13 @@ class Status(object):
 		if opts.show_progress:
 			set_status_msg(None)
 
-		sort_order = [
-			["#", "Path", "Notes", "Remotes", "Commits", "Refs"],
+		STATUS_CODES = "?MADRCUT!"
+
+		column_sort_order = [
+			["#", "Path", "Notes", "Remotes", "Commits", "Refs", "??",
+				*(f"•{c}" for c in STATUS_CODES[1:-1]),
+				*(f"{c}•" for c in STATUS_CODES[1:-1]),
+			],
 			["Unsupported Remote Config"],
 		]
 		def cell_filter(*, row, column, value, width, fill):
@@ -98,12 +103,24 @@ class Status(object):
 
 		if statistics_table:
 			statistics_table_sorted = []
-			sort_index = gen_sort_index(statistics_table[0], sort_order)
+
+			# Sort Columns
+			column_sort_index = gen_sort_index(statistics_table[0], column_sort_order)
 			for row in statistics_table:
 				row_sorted = []
-				for i in sort_index:
+				for i in column_sort_index:
 					row_sorted.append(row[i] if i < len(row) else "")
 				statistics_table_sorted.append(row_sorted)
+
+			# Sort Rows
+			statistics_table_sorted_columns = statistics_table_sorted[0]
+			columns_indexes = [i for i, c in enumerate(statistics_table_sorted_columns) if len(c) == 2 and c[1] in STATUS_CODES]
+			columns_indexes.sort(key=lambda c: STATUS_CODES.index(statistics_table_sorted_columns[c][1]))
+			def row_sort_key(row):
+				key = tuple((row[i] or 0) for i in columns_indexes)
+				return key
+			# statistics_table_sorted[1:].sort(key=row_sort_key, reverse=True)
+			statistics_table_sorted[1:] = sorted(statistics_table_sorted[1:], key=row_sort_key, reverse=True)
 			statistics_table = statistics_table_sorted
 
 		if opts.output_json:
@@ -152,14 +169,20 @@ class Status(object):
 		if not stdout:
 			return
 		for line in stdout.splitlines():
-			status = None
 			m = re.match(self._status_line_pattern, line)
 			index, worktree, dummy_filepath, dummy_renamed_to = m.groups()
-			index = "•" if index == " " else index
-			worktree = "•" if worktree == " " else worktree
-			status = f"{index}{worktree}"
-			statistics.setdefault(status, 0)
-			statistics[status] += 1
+			status_codes = []
+			if (index, worktree) in (("?", "?"), ("!", "!")):
+				status_codes.append(f"{index}{worktree}")
+			else:
+				status_codes.append(f"{index} ")
+				status_codes.append(f" {worktree}")
+			for status_code in status_codes:
+				if not status_code.strip():
+					continue
+				status_code = status_code.replace(" ", "•")
+				statistics.setdefault(status_code, 0)
+				statistics[status_code] += 1
 
 	async def get_repo_remotes(self, repo, statistics):
 		destination_remotes = set()
@@ -329,7 +352,7 @@ class Status(object):
 		if revs:
 			statistics["Commits"] = len(revs)
 
-	_status_line_pattern = re.compile(r"^([ MADRCUT?!])([ MADRCUT?!]) (.*?)(?: -> (.*?))?$")
+	_status_line_pattern = re.compile(r"^([ ?MADRCUT!])([ ?MADRCUT!]) (.*?)(?: -> (.*?))?$")
 
 	_home_parts = list(pathlib.Path.home().parts)
 
