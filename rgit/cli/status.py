@@ -85,10 +85,17 @@ class Status(object):
 
 		STATUS_CODES = "?MADRCUT!"
 
+		columns_to_sort_rows_by = [
+			"??",
+			*(f"•{c}" for c in STATUS_CODES[1:-1]),
+			*(f"{c}•" for c in STATUS_CODES[1:-1]),
+			"Commits", "Refs",
+		]
 		column_sort_order = [
-			["#", "Path", "Notes", "Remotes", "Commits", "Refs", "??",
-				*(f"•{c}" for c in STATUS_CODES[1:-1]),
-				*(f"{c}•" for c in STATUS_CODES[1:-1]),
+			[
+				"#", "Path", "Notes",
+				*columns_to_sort_rows_by,
+				"Remotes", "Other Remotes",
 			],
 			["Unsupported Remote Config"],
 		]
@@ -114,13 +121,16 @@ class Status(object):
 
 			# Sort Rows
 			statistics_table_sorted_columns = statistics_table_sorted[0]
-			columns_indexes = [i for i, c in enumerate(statistics_table_sorted_columns) if len(c) == 2 and c[1] in STATUS_CODES]
-			columns_indexes.sort(key=lambda c: STATUS_CODES.index(statistics_table_sorted_columns[c][1]))
+			columns_indexes = [i for i, c in enumerate(statistics_table_sorted_columns) if c in columns_to_sort_rows_by]
+			columns_indexes.sort(key=lambda i: columns_to_sort_rows_by.index(statistics_table_sorted_columns[i]))
 			def row_sort_key(row):
 				key = tuple((row[i] or 0) for i in columns_indexes)
 				return key
 			# statistics_table_sorted[1:].sort(key=row_sort_key, reverse=True)
 			statistics_table_sorted[1:] = sorted(statistics_table_sorted[1:], key=row_sort_key, reverse=True)
+			num_column_index = statistics_table_sorted[0].index("#")
+			for i, row in enumerate(statistics_table_sorted[1:]):
+				row[num_column_index] = i + 1
 			statistics_table = statistics_table_sorted
 
 		if opts.output_json:
@@ -185,10 +195,15 @@ class Status(object):
 				statistics[status_code] += 1
 
 	async def get_repo_remotes(self, repo, statistics):
+		"""
+		Populates "Remotes" and "Other Remotes" columns.
+		"""
 		destination_remotes = set()
 		other_remotes = set()
 		if await self.matching_ignore_folder(repo) is not None:
 			return
+		# Populate destination_remote names with remotes that match url prefix from "destination.remotes" configuration
+		# And other_remotes that don't match neither "destination.remotes" nor "destination.remotes.ignore".
 		async for remote_name, remote_config in git.enumerate_remotes(repo):
 			remote_url = remote_config["url"][-1]
 			if await self.matching_destination_remote(remote_url) is not None:
@@ -197,12 +212,19 @@ class Status(object):
 				if await self.matching_ignore_remote(remote_url) is None:
 					other_remotes.add(remote_name)
 
+		# The repo must either be in "destination.folders" and not have a remote with url matching a prefix from "destination.remotes",
+		# Or be outside of "destination.folders" and have a remote with url matching a prefix from "destination.remotes".
+		# Outstanding remotes will be reported in the "Remotes" column.
+
 		if await self.matching_destination_folder(repo) is not None:
 			if destination_remotes:
 				statistics["Remotes"] = ", ".join(sorted(destination_remotes))
 		else:
 			if not destination_remotes:
 				statistics["Remotes"] = " - "
+
+		# Any remotes with url not matching prefixes from "destination.remotes" or "destination.remotes.ignore"
+		# will be reported in "Other Remotes" column.
 
 		if other_remotes:
 			statistics["Other Remotes"] = ", ".join(sorted(other_remotes))
@@ -257,6 +279,8 @@ class Status(object):
 			remote_config.pop("receivepack", None)
 			remote_config.pop("uploadpack", None)
 			remote_config.pop("skipfetchall", None)
+			remote_config.pop("promisor", None)
+			remote_config.pop("partialclonefilter", None)
 			for ignored in ignored_remote_configs:
 				remote_config.pop(ignored, None)
 
@@ -291,8 +315,11 @@ class Status(object):
 					#TODO Implement support for negative refspecs.
 					continue
 				src, sep, dst = refspec.partition(":")
-				assert sep == ":"
-				remote_refspecs[dst] = (src, remote_name)
+				# assert sep == ":", refspec
+				if sep == ":":
+					remote_refspecs[dst] = (src, remote_name)
+				else:
+					print("X", end="", file=sys.stderr)
 
 		local_refs = {}
 		remote_refs = {}
@@ -326,12 +353,14 @@ class Status(object):
 						else:
 							raise ValueError("unrecognized branch config", (repo, key, value))
 					local_refs[ref_name] = (object_id, branch_remote, branch_merge)
-				elif ref[1] in ("tags", "notes"):
+				elif ref[1] in ("tags", "notes", "wip", "stash"):
 					# local_refs[ref_name] = (object_id, None, None)
 					# TODO Implement refs/tags/ and refs/notes/ support.
 					pass
 				else:
 					raise ValueError(f"Unrecognized Reference {ref_name} in repo {repo}")
+
+		# The "Refs" column shows number of local git refs that are not tracking a branch from a destination remote.
 
 		dangling_refs = []
 		tracking_refs = []
@@ -339,12 +368,18 @@ class Status(object):
 			if not branch_remote or branch_remote not in remotes:
 				dangling_refs.append(ref)
 				continue
-			#TODO If the remote branch is deleted but the local branch is still tracking it, this will throw a KeyError
-			remote_ref, remote_object_id = remote_refs[(branch_remote, branch_merge)]
+			try:
+				#TODO If the remote branch is deleted but the local branch is still tracking it, this will throw a KeyError
+				remote_ref, remote_object_id = remote_refs[(branch_remote, branch_merge)]
+			except KeyError:
+				dangling_refs.append(ref)
+				continue
 			tracking_refs.append((ref, object_id, remote_ref, remote_object_id))
 
 		if dangling_refs:
 			statistics["Refs"] = len(dangling_refs)
+
+		# The "Commits" column shows number of commit objects that are not yet present in the tracked branch of a destination remote.
 
 		revs = []
 		for ref, object_id, remote_ref, remote_object_id in tracking_refs:
