@@ -365,15 +365,10 @@ class Status(object):
 		dangling_refs = []
 		tracking_refs = []
 		for ref, (object_id, branch_remote, branch_merge) in local_refs.items():
-			if not branch_remote or branch_remote not in remotes:
+			if not branch_remote or branch_remote not in remotes or (branch_remote, branch_merge) not in remote_refs:
 				dangling_refs.append(ref)
 				continue
-			try:
-				#TODO If the remote branch is deleted but the local branch is still tracking it, this will throw a KeyError
-				remote_ref, remote_object_id = remote_refs[(branch_remote, branch_merge)]
-			except KeyError:
-				dangling_refs.append(ref)
-				continue
+			remote_ref, remote_object_id = remote_refs[(branch_remote, branch_merge)]
 			tracking_refs.append((ref, object_id, remote_ref, remote_object_id))
 
 		if dangling_refs:
