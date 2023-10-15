@@ -262,3 +262,85 @@ async def exists(gitdir):
 		worktree = None
 
 	return (True, worktree.exists() if worktree is not None else None)
+
+
+def run_sync(*args, cwd=None, encoding="UTF-8", capture_output=True, check=True, rstrip=True):
+	p = subprocess.run(
+		args,
+		cwd=cwd if cwd is not None else pathlib.Path.home(),
+		shell=False,
+		check=check,
+		capture_output=capture_output,
+		encoding="UTF-8",
+	)
+	result = p.stdout
+	if rstrip:
+		result = result.rstrip()
+	return result
+
+
+class Repo(object):
+	__slots__ = (
+		"_gitdir",
+		"_worktree",
+	)
+	def __init__(self, *, gitdir, worktree=WORKTREE) -> None:
+		#TODO Convert this to an async function, switch to using the `git` function and embed it.
+		self._gitdir = pathlib.Path(gitdir).resolve()
+		if not self._gitdir.exists():
+			raise ValueError("the passed gitdir doesn't exist", gitdir)
+
+		if not self._gitdir.is_dir():
+			try:
+				self._gitdir = pathlib.Path(run_sync(
+					"git", "--git-dir", self._gitdir.as_posix(), "rev-parse", "--git-dir"
+				))
+				if not self._gitdir.exists():
+					raise ValueError("the determined gitdir path doesn't exist", self._gitdir)
+			except subprocess.CalledProcessError as e:
+				raise ValueError("failed to determine the actual path of passed gitdir", gitdir, p)
+
+		if worktree is WORKTREE:
+			if self._gitdir.name == ".git":
+				self._worktree = self._gitdir.parent
+			else:
+				if "true" == run_sync("git", "--git-dir", self._gitdir.as_posix(), "config", "--get", "--bool", "core.bare"):
+					self._worktree = None
+				else:
+					try:
+						self._worktree = pathlib.Path(run_sync(
+							"git", "--git-dir", self._gitdir.as_posix(), "rev-parse", "--show-toplevel"
+						))
+						if not self._worktree.exists():
+							raise ValueError("the determined worktree path doesn't exist", self._worktree)
+					except subprocess.CalledProcessError as e:
+						raise ValueError("worktree is not passed and can not be determined", gitdir, worktree)
+		else:
+			self._worktree = pathlib.Path(worktree).resolve()
+			if not self._worktree.exists():
+				raise ValueError("the passed worktree doesn't exist")
+
+	def __hash__(self) -> int:
+		return (
+			self.gitdir.as_posix(),
+			self.worktree.as_posix() if self.worktree is not None else None
+		).__hash__()
+
+	def __eq__(self, __value: object) -> bool:
+		return (self._gitdir, self._worktree).__eq__(
+			(__value._gitdir, __value._worktree)
+		)
+
+	def __repr__(self) -> str:
+		return f"<Repo gitdir={self._gitdir}, worktree={self._worktree}>"
+
+	@property
+	def gitdir(self):
+		return self._gitdir
+
+	@property
+	def worktree(self):
+		return self._worktree
+
+	def is_worktree_custom(self):
+		return not (self._gitdir.name == ".git" and self._gitdir.parent == self._worktree)
