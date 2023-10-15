@@ -107,7 +107,7 @@ class Scan(object):
 				if repo is None:
 					continue
 
-				if repo in repositories_found or repo in repositories_to_skip:
+				if repo in repositories_found or repo.gitdir in repositories_to_skip:
 					continue
 
 				for ignored_folder in dirs_to_skip:
