@@ -101,6 +101,14 @@ async def get_remotes(repo):
 	return (await git(repo, "remote")).splitlines()
 
 
+async def list_config(repo, *, returncode_ok=None):
+	text = await git(repo, "config", "--list", "--local", "--null",returncode_ok=returncode_ok)
+	assert not text or text.endswith("\0"), repr(text)
+	text = text[:-1]
+	for v in text.split("\0"):
+		yield v
+
+
 async def get_config(repo, name, *, returncode_ok=None):
 	text = await git(repo, "config", "--get-all", "--null", name, returncode_ok=returncode_ok)
 	assert not text or text.endswith("\0"), repr(text)
@@ -126,6 +134,20 @@ async def get_config_remote(repo, remote):
 async def get_config_branch(repo, branch, *, returncode_ok=None):
 	async for x in get_config_prefix(repo, f"branch.{branch}", returncode_ok=returncode_ok):
 		yield x
+
+
+def split_config_key(key):
+	#TODO:bug: Git allows dots (.) and dashes (-) in the section name, which makes the
+	# output from `git config (--get|--list)` ambiguous. We will assume here that the section
+	# and the name doesn't contain a dot (.).
+
+	section, sep, subsection_and_name = key.partition(".")
+	assert sep == "."
+	subsection, sep, name = subsection_and_name.rpartition(".")
+	if sep != ".":
+		subsection = None
+
+	return (section, subsection, name)
 
 
 async def enumerate_remotes(repo, *, remotes=None):
@@ -255,7 +277,7 @@ async def exists(gitdir):
 	stdout = stdout.rstrip("\r\n")
 
 	if stdout:
-		worktree = pathlib.Path(stdout)
+		worktree = gitdir / pathlib.Path(stdout)
 	elif gitdir.name == ".git":
 		worktree = gitdir.parent
 	else:
@@ -340,7 +362,7 @@ class Repo(object):
 
 	@property
 	def worktree(self):
-		return self._worktree
+		return (self._gitdir / self._worktree) if self._worktree else None
 
 	def is_worktree_custom(self):
 		return not (self._gitdir.name == ".git" and self._gitdir.parent == self._worktree)
