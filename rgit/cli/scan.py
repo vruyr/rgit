@@ -8,9 +8,6 @@ from .. import git
 import yaml
 
 
-# TODO Implement worktree support.
-
-
 @command("scan")
 class Scan(object):
 	@classmethod
@@ -107,7 +104,7 @@ class Scan(object):
 						if re_add_gitdir:
 							dirs.append(".git")
 				elif "refs" in dirs and "objects" in dirs and "HEAD" in files:
-					#TODO A repo might be set up such that the objects directory is elsewhere,
+					#TODO:bug: A repo might be set up such that the objects directory is elsewhere,
 					#  e.g. via GIT_OBJECT_DIRECTORY.
 					#  See https://github.com/git/git/blob/v2.42.0/setup.c#L345-L355
 					repo = git.Repo(gitdir=root)
@@ -139,6 +136,8 @@ class Scan(object):
 			await self.write_output_yaml(repositories_found, opts.output_path)
 
 	async def write_output_yaml(self, repositories_found, output_path):
+		#TODO:cleanup: Refactor this function to extract the logic into methods of the git.Repo class.
+
 		# We only consider a config to be common is more than half has the same value.
 		config_yaml_common_config_threshold = len(repositories_found) // 2
 		# The gitdir and worktree paths are relative to user's home folder.
@@ -160,18 +159,20 @@ class Scan(object):
 		}
 		for repo in sorted(repositories_found, key=lambda r: r.gitdir):
 			config_yaml_repositories.append(
-				#TODO Change this to collections.OrderedDict() and make PyYAML to render it as a regular dict.
+				#TODO:yaml: Change this to collections.OrderedDict() and make PyYAML to render it as a regular dict.
 				repo_entry := {}
 			)
 
 			repo_entry["gitdir"] = make_path_relative(repo.gitdir).as_posix()
-			#TODO The gitdir path above and worktree paths below should be added as pathlib.Path objects and rendered by the YAML library in quotes and unbroken.
+			#TODO:yaml: The gitdir path above and worktree paths below should be added as pathlib.Path objects and rendered by the YAML library in quotes and unbroken.
 			if repo.worktree and repo.is_worktree_custom():
-				#TODO Handle bare repos explicitly
+				#TODO:bug: Handle bare repos explicitly
 				repo_entry["worktrees"] = {
-					#TODO Think through the schema of the worktrees sub-object.
+					#TODO:worktrees: Think through the schema of the worktrees sub-object.
 					make_path_relative(repo.worktree).as_posix(): None
 				}
+				#TODO:worktrees: List all the added worktrees along with their custom configurations.
+
 
 			repo_entry["remotes"] = {}
 			repo_entry["branches"] = {}
@@ -225,7 +226,7 @@ class Scan(object):
 					# In case the "remote.<name>.fetch" is either alone or came first
 					repo_entry["remotes"].setdefault(remote_name, None)
 
-			#TODO Instead of relying on dict preserving key order, the yaml renderer should sort these keys.
+			#TODO:yaml: Instead of relying on dict preserving key order, the yaml renderer should sort these keys.
 			repo_entry["remotes"] = dict(sorted(repo_entry["remotes"].items(), reverse=True))
 			if not len(repo_entry["remotes"]):
 				del repo_entry["remotes"]
@@ -233,7 +234,7 @@ class Scan(object):
 			# Updating the common config values as a separate loop to accommodate multi-value keys.
 			for key, value in repo_entry["config"].items():
 				config_yaml_common_config[key][value] += 1
-				#TODO The yaml renderer should be able to take tuples as lists.
+				#TODO:yaml: The yaml renderer should be able to take tuples as lists.
 				repo_entry["config"][key] = str_or_list(value)
 
 			# Normalize the branches
