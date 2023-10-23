@@ -117,7 +117,7 @@ class Scan(object):
 				if repo is None:
 					continue
 
-				if repo in repositories_found or repo.gitdir in repositories_to_skip:
+				if repo in repositories_found:
 					continue
 
 				for ignored_folder in dirs_to_skip:
@@ -129,7 +129,8 @@ class Scan(object):
 					repositories_found.add(repo)
 					if opts.show_progress:
 						set_status_msg(None)
-					await self.report_new_repo(repo)
+					if repo.gitdir not in repositories_to_skip:
+						await self.report_new_repo(repo)
 
 		if opts.show_progress:
 			set_status_msg(None)
