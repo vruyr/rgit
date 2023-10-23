@@ -165,7 +165,7 @@ class Scan(object):
 			)
 
 			repo_entry["gitdir"] = make_path_relative(repo.gitdir).as_posix()
-
+			#TODO The gitdir path above and worktree paths below should be added as pathlib.Path objects and rendered by the YAML library in quotes and unbroken.
 			if repo.worktree and repo.is_worktree_custom():
 				#TODO Handle bare repos explicitly
 				repo_entry["worktrees"] = {
