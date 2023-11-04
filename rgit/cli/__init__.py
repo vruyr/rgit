@@ -5,9 +5,7 @@ from . import registry, scan, status, ignored
 
 async def main(args, *, loop=None):
 	opts = _parse_args(args=args)
-	config_path = opts.config_path
-	if config_path is None:
-		config_path = (pathlib.Path.home() / ("." + constants.SELF_NAME + ".json"))
+	config_path = find_config_file(opts)
 	config = await configuration.load(config_file_path=pathlib.Path(config_path))
 	handler = registry.get_command_handler(opts.command)
 	if handler is not None:
@@ -15,6 +13,22 @@ async def main(args, *, loop=None):
 		await handler_instance.execute(opts=opts, config=config)
 	else:
 		print("external commands are not supported yet")
+
+
+def find_config_file(opts):
+	if opts.config_path:
+		return opts.config_path
+
+	candidates = [
+		(pathlib.Path.home() / ("." + constants.SELF_NAME + ".json")),
+		(pathlib.Path.home() / ".config" / constants.SELF_NAME / "config.json"),
+	]
+
+	for c in candidates:
+		if c.exists():
+			return c
+
+	return None
 
 
 def _parse_args(args=None):

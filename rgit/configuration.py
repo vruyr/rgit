@@ -26,7 +26,7 @@ class FileBasedConfiguration(object):
 
 	@property
 	def basedir(self):
-		return self._path.absolute().parent
+		return pathlib.Path.home()
 
 	@property
 	def repositories(self):
