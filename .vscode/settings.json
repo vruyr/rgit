@@ -1,0 +1,10 @@
+{
+	"todo-tree.highlights.customHighlight": {
+		"TODO": {
+			"type": "whole-line",
+			"hideFromTree": false,
+			"hideFromStatusBar": false,
+			"hideFromActivityBar": false,
+		},
+	}
+}
