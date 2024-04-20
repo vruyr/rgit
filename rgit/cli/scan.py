@@ -4,7 +4,7 @@ from ..tools import set_status_msg, add_status_msg
 from .registry import command
 from .. import git
 
-# pip install -U pyyaml==6.0.1
+# pip install -U PyYAML>=6.0.1,<7.0.0
 import yaml
 
 

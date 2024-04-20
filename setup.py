@@ -24,5 +24,6 @@ setup(
 	package_data={
 	},
 	install_requires=[
+		"PyYAML>=6.0.1,<7.0.0"
 	]
 )
