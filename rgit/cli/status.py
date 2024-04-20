@@ -175,7 +175,11 @@ class Status(object):
 		if await git.is_bare(repo):
 			return
 		# TODO Switch to using ..git.status() instead of calling the git command directly.
-		stdout = await git.git(repo, "status", "--porcelain")
+		try:
+			stdout = await git.git(repo, "status", "--porcelain")
+		except Exception as e:
+			statistics["Error"] = str(e)
+			return
 		if not stdout:
 			return
 		for line in stdout.splitlines():
