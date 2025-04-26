@@ -342,7 +342,9 @@ class Status(object):
 
 				assert ref[0] == "refs"
 
-				if ref[1] == "heads":
+				if len(ref) == 4 and ref[1] == "remotes" and ref[3] == "HEAD":
+					pass
+				elif ref[1] == "heads":
 					branch = "/".join(ref[2:])
 					branch_remote = None
 					branch_merge = None
