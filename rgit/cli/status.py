@@ -354,6 +354,9 @@ class Status(object):
 						elif key in ("push", "pushremote"):
 							# TODO Shall we do something special if branch push and pushremote are configured?
 							pass
+						elif key in ("vscode-merge-base"):
+							# TODO Properly configure and monitor ignored branch configurations.
+							pass
 						else:
 							raise ValueError("unrecognized branch config", (repo, key, value))
 					local_refs[ref_name] = (object_id, branch_remote, branch_merge)
