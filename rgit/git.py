@@ -320,7 +320,7 @@ class Repo(object):
 				if not self._gitdir.exists():
 					raise ValueError("the determined gitdir path doesn't exist", self._gitdir)
 			except subprocess.CalledProcessError as e:
-				raise ValueError("failed to determine the actual path of passed gitdir", gitdir, p)
+				raise ValueError("failed to determine the actual path of passed gitdir", gitdir, e)
 
 		if worktree is WORKTREE:
 			if self._gitdir.name == ".git":
