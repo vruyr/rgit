@@ -36,10 +36,11 @@ class Ignored(object):
 		parser.add_argument(
 			"--list", "-l",
 			dest="show_lists_only",
-			action="store",
+			action="append",
 			metavar="NAME",
 			default=None,
-			help="show list of groups only"
+			choices=["groups", "sources", "files"],
+			help="only show the specified lists"
 		)
 		parser.add_argument(
 			"folders",
@@ -124,7 +125,7 @@ class Ignored(object):
 		set_status_msg(None)
 
 		if opts.show_lists_only is not None:
-			lists_to_show = set(re.split(r"[,\s]+", opts.show_lists_only))
+			lists_to_show = set(opts.show_lists_only)
 			at_least_one_list_shown = False
 			def show_list(thelist, *, sort=True):
 				if sort:
