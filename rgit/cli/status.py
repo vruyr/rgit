@@ -387,7 +387,11 @@ class Status(object):
 
 		revs = []
 		for ref, object_id, remote_ref, remote_object_id in tracking_refs:
-			revs.extend((await git.git(repo, "rev-list", object_id, f"^{remote_object_id}")).splitlines())
+			for rev in (await git.git(repo, "rev-list", object_id, f"^{remote_object_id}")).splitlines():
+				msg = (await git.git(repo, "log", "-1", "--pretty=tformat:%s", rev)).strip()
+				if msg == "TMP" or msg.startswith("TMP:"):
+					continue
+				revs.append(rev)
 		if revs:
 			statistics["Commits"] = len(revs)
 
