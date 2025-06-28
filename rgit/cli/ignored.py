@@ -224,7 +224,7 @@ class IgnoreGroupReader(object):
 		group_name_pattern = re.compile(r"^[a-z0-9_]+$")
 		group_stack = []
 		with path.open("r") as fo:
-			for line in fo:
+			for line_num, line in enumerate(fo, start=1):
 				if line.startswith(start_marker):
 					# TODO Instead of converting to lowercase, use case-insensitive mapping and report any inconsistencies.
 					group = line[len(start_marker):].strip().lower()
@@ -234,6 +234,6 @@ class IgnoreGroupReader(object):
 				elif line.startswith(end_marker):
 					group_stack.pop(-1)
 				if len(group_stack) > 1:
-					raise ValueError("nested groups are not supported yet")
+					raise ValueError(f"nested groups are not supported: {os.fspath(path)}:{line_num}")
 				result.append(list(set(group_stack)))
 		return result
