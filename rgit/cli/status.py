@@ -356,7 +356,7 @@ class Status(object):
 						elif key in ("push", "pushremote"):
 							# TODO Shall we do something special if branch push and pushremote are configured?
 							pass
-						elif key in ("vscode-merge-base"):
+						elif key in ("vscode-merge-base", "github-pr-owner-number", "github-pr-base-branch"):
 							# TODO Properly configure and monitor ignored branch configurations.
 							pass
 						else:
