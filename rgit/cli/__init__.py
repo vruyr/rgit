@@ -3,7 +3,7 @@ from .. import configuration, constants
 from . import registry, scan, status, ignored
 
 
-async def main(args, *, loop=None):
+async def main(args):
 	opts = _parse_args(args=args)
 	config_path = find_config_file(opts)
 	config = await configuration.load(config_file_path=pathlib.Path(config_path))

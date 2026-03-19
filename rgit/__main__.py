@@ -3,12 +3,12 @@ from . import cli
 
 
 def _smain(args):
-	if sys.platform == "win32":
-		loop = asyncio.ProactorEventLoop()
-		asyncio.set_event_loop(loop)
-	else:
-		loop = asyncio.get_event_loop()
-	loop.run_until_complete(cli.main(args, loop=loop))
+	# if sys.platform == "win32":
+	# 	loop = asyncio.ProactorEventLoop()
+	# 	asyncio.set_event_loop(loop)
+	# else:
+	# 	loop = asyncio.get_event_loop()
+	asyncio.run(cli.main(args))
 
 
 def _ssmain():
