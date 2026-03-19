@@ -279,6 +279,9 @@ class Status(object):
 			# TODO Implement remote.<name>.push config support. This needs a redesign of local to remote branch mapping from a single link to a double link (fetch and push).
 			remote_config.pop("push", None)
 
+			remote_config.pop("gh-resolved", None)  # VSCode GitHub extension
+			remote_config.pop("github-pr-remote", None)  # VSCode GitHub extension
+
 			#TODO Make sure these remote configurations do not affect commit statistics.
 			remote_config.pop("receivepack", None)
 			remote_config.pop("uploadpack", None)
