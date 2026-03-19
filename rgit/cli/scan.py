@@ -92,7 +92,13 @@ class Scan(object):
 				# collapsed thought via the `repositories_found` set object.
 
 				if ".git" in dirs or ".git" in files:
-					repo = git.Repo(gitdir=(root / ".git"), worktree=root)
+					try:
+						repo = git.Repo(gitdir=(root / ".git"), worktree=root)
+					except ValueError:
+						# Skip invalid git directories (e.g., corrupted or incomplete .git folders)
+						gitpath = root / ".git"
+						add_status_msg(f"WARNING: {gitpath.as_posix()} - invalid git repository\n")
+						repo = None
 					if opts.skip_gitdirs:
 						try:
 							dirs.remove(".git")
@@ -107,7 +113,13 @@ class Scan(object):
 					#TODO:bug: A repo might be set up such that the objects directory is elsewhere,
 					#  e.g. via GIT_OBJECT_DIRECTORY.
 					#  See https://github.com/git/git/blob/v2.42.0/setup.c#L345-L355
-					repo = git.Repo(gitdir=root)
+					try:
+						repo = git.Repo(gitdir=root)
+					except ValueError:
+						# Skip invalid git directories
+						gitpath = root
+						add_status_msg(f"WARNING: {gitpath.as_posix()} - invalid git repository\n")
+						repo = None
 					if opts.skip_gitdirs:
 						del dirs[:]
 
