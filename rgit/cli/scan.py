@@ -74,6 +74,28 @@ class Scan(object):
 		repositories_to_skip = set(config.repositories) if not opts.show_all else set()
 		repositories_found = set()
 		counter = 0
+
+		def should_ignore(gitdir, worktree=None):
+			"""Check if a repository should be ignored based on its gitdir or worktree location.
+
+			Args:
+				gitdir: Path to the git directory (.git folder)
+				worktree: Optional path to the worktree (None for bare repos or when not yet determined)
+
+			Returns:
+				True if the repository should be ignored, False otherwise
+
+			Note: We check both gitdir and worktree because repos can have custom worktrees
+			configured via core.worktree in git config. A repo might be in a non-ignored location
+			but have its worktree in an ignored folder, or vice versa.
+			"""
+			for ignored_folder in dirs_to_skip:
+				if gitdir.is_relative_to(ignored_folder):
+					return True
+				if worktree and worktree.is_relative_to(ignored_folder):
+					return True
+			return False
+
 		for starting_folder in scan_folders:
 			for root, dirs, files in os.walk(starting_folder, topdown=True):
 				root = pathlib.Path(root)
@@ -92,12 +114,20 @@ class Scan(object):
 				# collapsed thought via the `repositories_found` set object.
 
 				if ".git" in dirs or ".git" in files:
+					# If the gitdir is ignored, there is no point in checking the worktree. The
+					# worktree could be overridden, but if this folder containing .git is ignored,
+					# the whole thing is considered ignored.
+					if should_ignore(root / ".git", worktree=root):
+						continue
+
 					try:
 						repo = git.Repo(gitdir=(root / ".git"), worktree=root)
 					except ValueError:
 						# Skip invalid git directories (e.g., corrupted or incomplete .git folders)
 						gitpath = root / ".git"
-						add_status_msg(f"WARNING: {gitpath.as_posix()} - invalid git repository\n")
+						if opts.show_progress:
+							set_status_msg(None)
+						sys.stderr.write(f"WARNING: {gitpath.as_posix()!r} - invalid git repository\n")
 						repo = None
 					if opts.skip_gitdirs:
 						try:
@@ -113,6 +143,10 @@ class Scan(object):
 					#TODO:bug: A repo might be set up such that the objects directory is elsewhere,
 					#  e.g. via GIT_OBJECT_DIRECTORY.
 					#  See https://github.com/git/git/blob/v2.42.0/setup.c#L345-L355
+
+					if should_ignore(root):
+						continue
+
 					try:
 						repo = git.Repo(gitdir=root)
 					except ValueError:
@@ -129,17 +163,14 @@ class Scan(object):
 				if repo in repositories_found:
 					continue
 
-				for ignored_folder in dirs_to_skip:
-					if repo.gitdir.is_relative_to(ignored_folder):
-						break
-					if repo.worktree and repo.worktree.is_relative_to(ignored_folder):
-						break
-				else:
-					repositories_found.add(repo)
-					if opts.show_progress:
-						set_status_msg(None)
-					if repo.gitdir not in repositories_to_skip:
-						await self.report_new_repo(repo)
+				if should_ignore(repo.gitdir, repo.worktree):
+					continue
+
+				repositories_found.add(repo)
+				if opts.show_progress:
+					set_status_msg(None)
+				if repo.gitdir not in repositories_to_skip:
+					await self.report_new_repo(repo)
 
 		if opts.show_progress:
 			set_status_msg(None)
