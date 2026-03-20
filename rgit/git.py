@@ -1,5 +1,7 @@
 import asyncio, subprocess, os, pathlib, re
 
+_git_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+
 
 async def status(repo, *args):
 	def process_status_porcelain_v2_output(stdout):
@@ -206,9 +208,7 @@ async def git(
 		stdout=subprocess.PIPE,
 		stderr=subprocess.PIPE,
 		stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
-		env=update_env(
-			GIT_TERMINAL_PROMPT="0"
-		),
+		env=_git_env,
 		encoding=None, # We want bytes
 	)
 	assert isinstance(stdin, (str, bytes, type(None)))
@@ -227,12 +227,6 @@ async def git(
 		assert not stderr, (repo, args, p.returncode, stderr)
 	return stdout.decode("utf_8")
 
-
-def update_env(*args, **kwargs):
-	new_env = dict(os.environ.items())
-	new_env.update(args)
-	new_env.update(kwargs.items())
-	return new_env
 
 
 def walk_config_regex_output(text, prefix):
@@ -265,9 +259,7 @@ async def exists(gitdir):
 		stdout=subprocess.PIPE,
 		stderr=subprocess.PIPE,
 		stdin=subprocess.DEVNULL,
-		env=update_env(
-			GIT_TERMINAL_PROMPT="0"
-		),
+		env=_git_env,
 		encoding=None,
 	)
 	stdout, stderr = await p.communicate()
