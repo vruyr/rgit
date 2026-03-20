@@ -1,5 +1,5 @@
-import sys, os, pathlib, re, collections, shlex, itertools, json
-from ..tools import draw_table, set_status_msg, add_status_msg, url_starts_with, gen_sort_index, is_path_in
+import sys, os, pathlib, re, collections, shlex, itertools, json, asyncio
+from ..tools import draw_table, ProgressDisplay, url_starts_with, gen_sort_index, is_path_in
 from .registry import command
 from .. import git
 
@@ -60,28 +60,47 @@ class Status(object):
 		opts.folders = [pathlib.Path(f).resolve() for f in opts.folders]
 
 		statistics_table = []
+		semaphore = asyncio.Semaphore(32)
+		progress = ProgressDisplay() if opts.show_progress else None
 
+		status_char_processing = "."
+		status_char_done = "+"
+		status_char_skip = "-"
+
+		async def process_repo(repo):
+			async with semaphore:
+				if progress is not None:
+					idx = progress.add(status_char_processing)
+				statistics = {}
+				gitdir_exists, worktree_exists = await git.exists(repo)
+				if (gitdir_exists, worktree_exists) in ((True, True), (True, None)):
+					await self.get_repo_remotes(repo, statistics)
+					await self.get_repo_commit_statistics(repo, statistics)
+					await self.get_repo_status_stats(repo, statistics)
+				elif (gitdir_exists, worktree_exists) in ((True, False),):
+					statistics["Notes"] = "missing worktree"
+				else:
+					statistics["Notes"] = "missing repo"
+				if progress is not None:
+					progress.update(idx, status_char_done)
+				return (repo, statistics)
+
+		coros = []
 		for repo in self._config.repositories:
 			if opts.folders and not any(is_path_in(f, repo) for f in opts.folders):
-				if opts.show_progress:
-					add_status_msg("-")
+				if progress is not None:
+					progress.add(status_char_skip)
 				continue
-			if opts.show_progress:
-				add_status_msg("*")
-			statistics = {}
-			gitdir_exists, worktree_exists = await git.exists(repo)
-			if (gitdir_exists, worktree_exists) in ((True, True), (True, None)):
-				await self.get_repo_remotes(repo, statistics)
-				await self.get_repo_commit_statistics(repo, statistics)
-				await self.get_repo_status_stats(repo, statistics)
-			elif (gitdir_exists, worktree_exists) in ((True, False),):
-				statistics["Notes"] = "missing worktree"
-			else:
-				statistics["Notes"] = "missing repo"
-			await self.render_statistics_row(statistics_table, repo, statistics)
 
-		if opts.show_progress:
-			set_status_msg(None)
+			coros.append(process_repo(repo))
+
+		results = await asyncio.gather(*coros)
+
+		if progress is not None:
+			progress.clear()
+
+		for repo, statistics in results:
+			await self.render_statistics_row(statistics_table, repo, statistics)
 
 		STATUS_CODES = "?MADRCUT!"
 

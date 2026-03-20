@@ -1,4 +1,4 @@
-import sys, functools, pathlib, urllib.parse, re
+import sys, functools, os, pathlib, unicodedata, urllib.parse, re
 
 
 # TODO Consider moving console output routines to a separate python package (can be named termtools).
@@ -180,6 +180,92 @@ def draw_table(rows, *, fo,
 	fo.write(render_row(None))
 	fo.write("\n")
 	fo.flush()
+
+
+class ProgressDisplay:
+	"""
+	A multi-line, in-place progress display written to stderr.
+
+	Each slot is a single character appended via `add()` and optionally
+	replaced later via `update()`. On every change the display is redrawn
+	in place: the cursor is repositioned using ANSI escape codes and the
+	whole block is erased and reprinted.
+
+	The terminal handles line wrapping naturally. The number of lines
+	occupied is derived from `ceil(display_width / terminal_width)`, where
+	display width is measured in cells via `unicodedata.east_asian_width`
+	so wide characters (CJK, full-width forms, most emoji) count as two
+	cells. Some terminals (e.g. Apple Terminal) may not render wide
+	characters correctly.
+
+	If the terminal width cannot be determined, cursor manipulation is
+	skipped and progress characters are written as a plain character
+	stream instead.
+	"""
+
+	def __init__(self, *, fo=sys.stderr):
+		self._fo = fo
+		self._chars = []
+		self._rendered_lines = 0
+		try:
+			self._width = os.get_terminal_size(fo.fileno()).columns
+		except OSError:
+			self._width = None  # fall back to plain stream; see also: SIGWINCH
+		if self._width <= 0:
+			self._width = None
+
+	def add(self, char):
+		"""Append a new character slot, re-render, and return its index."""
+		idx = len(self._chars)
+		self._chars.append(char)
+		if self._width is None:
+			self._fo.write(char)
+			self._fo.flush()
+		else:
+			self._render()
+		return idx
+
+	def update(self, idx, char):
+		"""Replace the character at *idx* and re-render."""
+		self._chars[idx] = char
+		if self._width is not None:
+			self._render()
+
+	def clear(self):
+		"""Erase the progress display entirely."""
+		if self._width is None:
+			self._fo.write("\n")
+			self._fo.flush()
+		else:
+			self._erase()
+		self._chars = []
+		self._rendered_lines = 0
+
+	# -- internals --
+
+	@staticmethod
+	def _char_width(c):
+		eaw = unicodedata.east_asian_width(c)
+		return 2 if eaw in ("W", "F") else 1
+
+	def _render(self):
+		content = "".join(self._chars)
+		display_w = sum(self._char_width(c) for c in content)
+		new_lines = max(1, (display_w + self._width - 1) // self._width)
+		if self._rendered_lines > 0:
+			self._fo.write(f"\033[{self._rendered_lines}A")
+		self._fo.write("\r\033[J")
+		self._fo.write(content)
+		self._fo.write("\r\n")
+		self._fo.flush()
+		self._rendered_lines = new_lines
+
+	def _erase(self):
+		if self._rendered_lines == 0:
+			return
+		self._fo.write(f"\033[{self._rendered_lines}A")
+		self._fo.write("\r\033[J")
+		self._fo.flush()
 
 
 def set_status_msg(msg, *, fo=sys.stderr):
