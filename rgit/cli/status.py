@@ -39,6 +39,13 @@ class Status(object):
 			help="output the result in JSON format instead of a rendered table view",
 		)
 		parser.add_argument(
+			"--sort",
+			dest="sort",
+			choices=["status", "path"],
+			default="status",
+			help="sort repositories by status (default) or path",
+		)
+		parser.add_argument(
 			"folders",
 			nargs="*",
 			metavar="FOLDER",
@@ -140,13 +147,20 @@ class Status(object):
 
 			# Sort Rows
 			statistics_table_sorted_columns = statistics_table_sorted[0]
-			columns_indexes = [i for i, c in enumerate(statistics_table_sorted_columns) if c in columns_to_sort_rows_by]
-			columns_indexes.sort(key=lambda i: columns_to_sort_rows_by.index(statistics_table_sorted_columns[i]))
-			def row_sort_key(row):
-				key = tuple((row[i] or 0) for i in columns_indexes)
-				return key
-			# statistics_table_sorted[1:].sort(key=row_sort_key, reverse=True)
-			statistics_table_sorted[1:] = sorted(statistics_table_sorted[1:], key=row_sort_key, reverse=True)
+			if opts.sort == "path":
+				# Sort by path (column index 1)
+				path_column_index = statistics_table_sorted_columns.index("Path")
+				def row_sort_key(row):
+					return (row[path_column_index] or "")
+				statistics_table_sorted[1:] = sorted(statistics_table_sorted[1:], key=row_sort_key)
+			elif opts.sort == "status":
+				columns_indexes = [i for i, c in enumerate(statistics_table_sorted_columns) if c in columns_to_sort_rows_by]
+				columns_indexes.sort(key=lambda i: columns_to_sort_rows_by.index(statistics_table_sorted_columns[i]))
+				def row_sort_key(row):
+					key = tuple((row[i] or 0) for i in columns_indexes)
+					return key
+				# statistics_table_sorted[1:].sort(key=row_sort_key, reverse=True)
+				statistics_table_sorted[1:] = sorted(statistics_table_sorted[1:], key=row_sort_key, reverse=True)
 			num_column_index = statistics_table_sorted[0].index("#")
 			for i, row in enumerate(statistics_table_sorted[1:]):
 				row[num_column_index] = i + 1
