@@ -1,4 +1,4 @@
-import sys, os, pathlib, re, collections, shlex, itertools, json, asyncio, urllib.parse
+import sys, os, pathlib, re, collections, shlex, itertools, json, asyncio, subprocess, urllib.parse
 from ..tools import draw_table, ProgressDisplay, url_starts_with, gen_sort_index, is_path_in
 from .registry import command
 from .. import git
@@ -25,11 +25,37 @@ class Status(object):
 	@classmethod
 	def define_arguments(cls, parser):
 		parser.add_argument(
-			"--shell", "--sh",
-			dest="shell",
+			"--relative",
+			dest="relative",
 			action="store_true",
 			default=False,
-			help="display paths suitable to be copy-pasted into shell",
+			help="display paths relative to the current working directory",
+		)
+		parser.add_argument(
+			"--zsh-named-dirs",
+			dest="zsh_named_dirs",
+			action="store_true",
+			default=True,
+			help="replace paths with zsh named directories",
+		)
+		parser.add_argument(
+			"--no-zsh-named-dirs",
+			dest="zsh_named_dirs",
+			action="store_false",
+			help="disable replacing paths with zsh named directories",
+		)
+		parser.add_argument(
+			"--quote-for-shell",
+			dest="quote_for_shell",
+			action="store_true",
+			default=True,
+			help="escape paths for shell copy-paste",
+		)
+		parser.add_argument(
+			"--no-quote-for-shell",
+			dest="quote_for_shell",
+			action="store_false",
+			help="disable escaping paths for shell copy-paste",
 		)
 		parser.add_argument(
 			"--json",
@@ -58,11 +84,17 @@ class Status(object):
 
 	def __init__(self):
 		self._config = None
-		self._shellify_paths = False
+		self._relativize_paths = False
+		self._shell_quote_paths = False
+		self._zsh_named_dirs = []
 
 	async def execute(self, *, opts, config):
 		self._config = config
-		self._shellify_paths = opts.shell
+		self._output_json = opts.output_json
+		self._relativize_paths = opts.relative
+		self._shell_quote_paths = opts.quote_for_shell
+		if opts.zsh_named_dirs:
+			self._zsh_named_dirs = self._get_zsh_named_directories()
 
 		opts.folders = [pathlib.Path(f).resolve() for f in opts.folders]
 
@@ -194,7 +226,7 @@ class Status(object):
 			statistics_table.append([])
 		column_names = statistics_table[0]
 		statistics["#"] = len(statistics_table)
-		statistics["Path"] = self._decorate_path_for_output(repo)
+		statistics["Path"] = os.fspath(repo) if self._output_json else self._decorate_path_for_output(repo)
 		row = [""] * len(column_names)
 		for column_name in statistics.keys():
 			if column_name in column_names:
@@ -462,29 +494,79 @@ class Status(object):
 	_home_parts = list(pathlib.Path.home().parts)
 
 	def _decorate_path_for_output(self, path):
-		if self._shellify_paths:
+		# 1. Relative
+		if self._relativize_paths:
 			try:
 				path = path.relative_to(pathlib.Path.cwd())
 			except ValueError:
 				pass
-			path_str = os.fspath(path)
+		# 2. Named directories (includes ~ for home as fallback)
+		if self._zsh_named_dirs:
+			path = self._abbreviate_with_named_dirs(path)
+		# 3. Shell quoting
+		path_str = os.fspath(path)
+		if self._shell_quote_paths:
 			path_str = path_str.replace("\\", "/")
-			if shlex.quote(path_str) == path_str:
-				path = self.abbreviate_path_for_shell(path)
-			elif shlex.quote(path_str.replace(" ", "")) == path_str.replace(" ", ""):
-				path = self.abbreviate_path_for_shell(pathlib.Path(path_str.replace(" ", "\\ ")))
-			else:
-				path = shlex.quote(path_str)
-		else:
-			path_str = os.fspath(path)
+			path_str = self._shell_quote_path(path_str)
 		return path_str
 
-	def abbreviate_path_for_shell(self, path):
+	@staticmethod
+	def _shell_quote_path(path_str):
+		# Separate ~name prefix from the rest for quoting purposes,
+		# since ~ should not be quoted to allow shell expansion.
+		if path_str.startswith("~"):
+			sep = path_str.find("/")
+			if sep == -1:
+				return path_str
+			prefix, rest = path_str[:sep], path_str[sep:]
+		else:
+			prefix, rest = "", path_str
+		if shlex.quote(rest) == rest:
+			return prefix + rest
+		if shlex.quote(rest.replace(" ", "")) == rest.replace(" ", ""):
+			return prefix + rest.replace(" ", "\\ ")
+		return prefix + shlex.quote(rest)
+
+	def _abbreviate_with_named_dirs(self, path):
 		path_parts = list(path.parts)
+		for name, dir_parts in self._zsh_named_dirs:
+			if path_parts[:len(dir_parts)] == dir_parts:
+				path_parts[:len(dir_parts)] = [f"~{name}"]
+				return pathlib.Path(*path_parts)
+		# Fall back to home directory abbreviation
 		if path_parts[:len(self._home_parts)] == self._home_parts:
-			path_parts[:len(self._home_parts)] = "~"
-			path = pathlib.Path(*path_parts)
+			path_parts[:len(self._home_parts)] = ["~"]
+			return pathlib.Path(*path_parts)
 		return path
+
+	@staticmethod
+	def _get_zsh_named_directories():
+		shell = os.environ.get("SHELL", "")
+		if not shell.endswith("zsh"):
+			return []
+		try:
+			result = subprocess.run(
+				[shell, "-ic", "hash -d"],
+				capture_output=True, text=True, timeout=5,
+			)
+			if result.returncode != 0:
+				return []
+		except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+			return []
+		named_dirs = []
+		for line in result.stdout.splitlines():
+			eq_idx = line.find("=")
+			if eq_idx == -1:
+				continue
+			name = line[:eq_idx]
+			path_str = line[eq_idx + 1:]
+			if len(path_str) >= 2 and path_str[0] == "'" and path_str[-1] == "'":
+				path_str = path_str[1:-1]
+			dir_parts = list(pathlib.Path(path_str).parts)
+			named_dirs.append((name, dir_parts))
+		# Sort by path length descending so longest match wins
+		named_dirs.sort(key=lambda x: len(x[1]), reverse=True)
+		return named_dirs
 
 
 def match_refspec(ref, spec, other_spec):
