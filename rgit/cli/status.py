@@ -70,14 +70,17 @@ class Status(object):
 		semaphore = asyncio.Semaphore(32)
 		progress = ProgressDisplay() if opts.show_progress else None
 
-		status_char_processing = "."
-		status_char_done = "+"
-		status_char_skip = "-"
+		status_char_awaiting = "·"
+		status_char_underway = "⊙"
+		status_char_finished = "◉"
+		status_char_excluded = "✕"
 
 		async def process_repo(repo):
+			if progress is not None:
+				idx = progress.add(status_char_awaiting)
 			async with semaphore:
 				if progress is not None:
-					idx = progress.add(status_char_processing)
+					progress.update(idx, status_char_underway)
 				statistics = {}
 				gitdir_exists, worktree_exists = await git.exists(repo)
 				if (gitdir_exists, worktree_exists) in ((True, True), (True, None)):
@@ -89,14 +92,14 @@ class Status(object):
 				else:
 					statistics["Notes"] = "missing repo"
 				if progress is not None:
-					progress.update(idx, status_char_done)
+					progress.update(idx, status_char_finished)
 				return (repo, statistics)
 
 		coros = []
 		for repo in self._config.repositories:
 			if opts.folders and not any(is_path_in(f, repo) for f in opts.folders):
 				if progress is not None:
-					progress.add(status_char_skip)
+					progress.add(status_char_excluded)
 				continue
 
 			coros.append(process_repo(repo))
