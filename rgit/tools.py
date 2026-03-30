@@ -288,6 +288,20 @@ def url_starts_with(url, prefix):
 	prefix_parts = urllib.parse.urlsplit(prefix)
 	assert len(url_parts) == 5, url_parts
 	assert len(prefix_parts) == 5, prefix_parts
+	# If prefix has no scheme and no netloc, treat it as a path
+	if not prefix_parts.scheme and not prefix_parts.netloc:
+		if url_parts.scheme or url_parts.netloc:
+			# The prefix is a path but the url has a scheme or netloc, so it cannot match.
+			return False
+		url_path = pathlib.PurePosixPath(url_parts.path)
+		prefix_path = pathlib.PurePosixPath(prefix_parts.path)
+		if prefix_path.is_absolute() != url_path.is_absolute():
+			return False
+		prefix_path_parts = prefix_path.parts
+		url_path_parts = url_path.parts
+		if len(prefix_path_parts) > len(url_path_parts):
+			return False
+		return prefix_path_parts == url_path_parts[:len(prefix_path_parts)]
 	if prefix_parts.scheme != url_parts.scheme:
 		return False
 	if prefix_parts.netloc != url_parts.netloc:

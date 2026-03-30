@@ -1,4 +1,4 @@
-import sys, os, pathlib, re, collections, shlex, itertools, json, asyncio
+import sys, os, pathlib, re, collections, shlex, itertools, json, asyncio, urllib.parse
 from ..tools import draw_table, ProgressDisplay, url_starts_with, gen_sort_index, is_path_in
 from .registry import command
 from .. import git
@@ -225,14 +225,16 @@ class Status(object):
 		other_remotes = set()
 		if await self.matching_ignore_folder(repo) is not None:
 			return
+		# Get worktree path for resolving relative remote URLs
+		worktree = repo.parent if repo.name == ".git" else repo
 		# Populate destination_remote names with remotes that match url prefix from "destination.remotes" configuration
 		# And other_remotes that don't match neither "destination.remotes" nor "destination.remotes.ignore".
 		async for remote_name, remote_config in git.enumerate_remotes(repo):
 			remote_url = remote_config["url"][-1]
-			if await self.matching_destination_remote(remote_url) is not None:
+			if await self.matching_destination_remote(remote_url, worktree) is not None:
 				destination_remotes.add(remote_name)
 			else:
-				if await self.matching_ignore_remote(remote_url) is None:
+				if await self.matching_ignore_remote(remote_url, worktree) is None:
 					other_remotes.add(remote_name)
 
 		# The repo must either be in "destination.folders" and not have a remote with url matching a prefix from "destination.remotes",
@@ -252,7 +254,13 @@ class Status(object):
 		if other_remotes:
 			statistics["Other Remotes"] = ", ".join(sorted(other_remotes))
 
-	async def matching_destination_remote(self, url):
+	async def matching_destination_remote(self, url, worktree):
+		url_parts = urllib.parse.urlsplit(url)
+		# If URL is a path (no scheme/netloc), resolve to absolute from worktree
+		if not url_parts.scheme and not url_parts.netloc:
+			url_path = pathlib.Path(url_parts.path)
+			if not url_path.is_absolute():
+				url = os.path.normpath(worktree / url_path)
 		for remote_url_prefix in self._config.destination_remotes:
 			if url_starts_with(url, remote_url_prefix):
 				return remote_url_prefix
@@ -264,8 +272,20 @@ class Status(object):
 				return folder
 		return None
 
-	async def matching_ignore_remote(self, url):
+	async def matching_ignore_remote(self, url, worktree):
+		url_parts = urllib.parse.urlsplit(url)
+		# If URL is a path (no scheme/netloc), resolve to absolute from worktree
+		if not url_parts.scheme and not url_parts.netloc:
+			url_path = pathlib.Path(url_parts.path)
+			if not url_path.is_absolute():
+				url = os.path.normpath(worktree / url_path)
 		for remote_url_prefix in self._config.destination_remotes_ignore:
+			prefix_parts = urllib.parse.urlsplit(remote_url_prefix)
+			# If prefix is a path (no scheme/netloc), resolve to absolute from basedir
+			if not prefix_parts.scheme and not prefix_parts.netloc:
+				prefix_path = pathlib.Path(prefix_parts.path)
+				if not prefix_path.is_absolute():
+					remote_url_prefix = os.path.normpath(self._config.basedir / prefix_path)
 			if url_starts_with(url, remote_url_prefix):
 				return remote_url_prefix
 		return None
@@ -279,6 +299,9 @@ class Status(object):
 	async def get_repo_commit_statistics(self, repo, statistics):
 		remotes = {}
 		other_remotes = {}
+
+		# Get worktree path for resolving relative remote URLs
+		worktree = repo.parent if repo.name == ".git" else repo
 
 		ignored_remote_configs = []
 		async for ignores in git.get_config(repo, "rgit.ignore-remote-config", returncode_ok=lambda x: True):
@@ -316,7 +339,7 @@ class Status(object):
 			if remote_config:
 				unsupported_remote_configs[remote_name] = remote_config
 			remote = d_remote_t(remote_url, remote_fetch)
-			if await self.matching_destination_remote(remote.url[-1]) is not None:
+			if await self.matching_destination_remote(remote.url[-1], worktree) is not None:
 				remotes[remote_name] = remote
 			else:
 				other_remotes[remote_name] = remote

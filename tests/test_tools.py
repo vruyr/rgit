@@ -134,6 +134,70 @@ class TestTools(unittest.TestCase):
 				"http://example.com/path/to/more",
 				False,
 			),
+			# Relative path tests
+			(
+				"../path/to/repo",
+				"../path/",
+				True,
+			),
+			(
+				"../path/to/repo",
+				"../path/to",
+				True,
+			),
+			(
+				"../path/",
+				"../path/to/repo",
+				False,
+			),
+			(
+				"../other/path",
+				"../path/",
+				False,
+			),
+			# Relative path without leading slash or ../
+			(
+				"path/to/repo",
+				"path/",
+				True,
+			),
+			(
+				"path/to/repo",
+				"path/to",
+				True,
+			),
+			(
+				"path/",
+				"path/to/repo",
+				False,
+			),
+			(
+				"other/path",
+				"path/",
+				False,
+			),
+			# Mixed absolute/relative should not match
+			(
+				"/absolute/path",
+				"../relative/path",
+				False,
+			),
+			(
+				"../relative/path",
+				"/absolute/path",
+				False,
+			),
+			# Path should not match URL
+			(
+				"http://example.com/path",
+				"../path",
+				False,
+			),
+			(
+				"/absolute/path",
+				"http://example.com/absolute/path",
+				False,
+			),
 		]
 		for url, prefix, expected in test_data:
 			self.assertIs(
