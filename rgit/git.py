@@ -1,4 +1,5 @@
 import asyncio, subprocess, os, pathlib, re
+import pygit2
 
 _git_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
 
@@ -100,7 +101,13 @@ async def status(repo, *args):
 
 
 async def get_remotes(repo):
-	return (await git(repo, "remote")).splitlines()
+	# Use pygit2 instead of spawning git process
+	try:
+		pygit_repo = pygit2.Repository(str(repo))
+		return list(pygit_repo.remotes.names())
+	except pygit2.GitError:
+		# Fall back to git command on error
+		return (await git(repo, "remote")).splitlines()
 
 
 async def list_config(repo, *, returncode_ok=None):
@@ -155,11 +162,30 @@ def split_config_key(key):
 async def enumerate_remotes(repo, *, remotes=None):
 	if remotes is None:
 		remotes = await get_remotes(repo)
-	for remote in remotes:
-		remote_config = {}
-		async for key, value in get_config_remote(repo, remote):
-			remote_config.setdefault(key, []).append(value)
-		yield (remote.strip(), remote_config)
+
+	# Use pygit2 to read config (much faster than spawning git processes)
+	try:
+		pygit_repo = pygit2.Repository(str(repo))
+		config = pygit_repo.config
+
+		for remote in remotes:
+			remote_config = {}
+			prefix = f"remote.{remote}."
+
+			# Iterate through all config entries looking for this remote
+			for entry in config:
+				if entry.name.startswith(prefix):
+					key = entry.name[len(prefix):]
+					remote_config.setdefault(key, []).append(entry.value)
+
+			yield (remote.strip(), remote_config)
+	except pygit2.GitError:
+		# Fall back to original implementation
+		for remote in remotes:
+			remote_config = {}
+			async for key, value in get_config_remote(repo, remote):
+				remote_config.setdefault(key, []).append(value)
+			yield (remote.strip(), remote_config)
 
 
 async def is_bare(repo):
@@ -249,27 +275,15 @@ async def exists(gitdir):
 	if not gitdir.exists():
 		return (False, False)
 
-	config_file_path = gitdir / "config"
+	# Use pygit2 to read config (much faster than spawning git process)
+	try:
+		repo = pygit2.Repository(str(gitdir))
+		core_worktree = repo.config['core.worktree'] if 'core.worktree' in repo.config else None
+	except (KeyError, pygit2.GitError):
+		core_worktree = None
 
-	#TODO Figure out a way to make git read config without specifying the config file path even in repositories with non-existent core.worktree config values.
-	#TODO Only call "git" executable from a single place - it should be flexible enough to accommodate all the needs.
-
-	p = await asyncio.create_subprocess_exec(
-		"git", "config", "--file", os.fspath(config_file_path), "--get", "core.worktree",
-		stdout=subprocess.PIPE,
-		stderr=subprocess.PIPE,
-		stdin=subprocess.DEVNULL,
-		env=_git_env,
-		encoding=None,
-	)
-	stdout, stderr = await p.communicate()
-	assert not stderr, (stderr,)
-
-	stdout = stdout.decode("UTF-8") #TODO Don't assume the encoding.
-	stdout = stdout.rstrip("\r\n")
-
-	if stdout:
-		worktree = gitdir / pathlib.Path(stdout)
+	if core_worktree:
+		worktree = gitdir / pathlib.Path(core_worktree)
 	elif gitdir.name == ".git":
 		worktree = gitdir.parent
 	else:
