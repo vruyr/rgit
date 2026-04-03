@@ -60,7 +60,9 @@ def _parse_args(args=None):
 		metavar="COMMAND",
 	)
 
-	for name, aliases, handler in registry.enumerate_command_handlers():
+	for name, aliases, handler, disabled in registry.enumerate_command_handlers():
+		if disabled:
+			continue
 		handler.define_arguments(subparsers.add_parser(
 			name,
 			aliases=aliases,

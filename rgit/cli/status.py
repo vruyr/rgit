@@ -601,7 +601,7 @@ def match_refspec(ref, spec, other_spec):
 		return None
 
 
-@command("add")
+@command("add", disabled=True)
 class Add(object):
 	@classmethod
 	def define_arguments(cls, parser):
@@ -618,7 +618,7 @@ class Add(object):
 		pass
 
 
-@command("remove", "rm")
+@command("remove", "rm", disabled=True)
 class Remove(object):
 	@classmethod
 	def define_arguments(cls, parser):
@@ -635,7 +635,7 @@ class Remove(object):
 		pass
 
 
-@command("cleanup")
+@command("cleanup", disabled=True)
 class Cleanup(object):
 	@classmethod
 	def define_arguments(cls, parser):
@@ -652,7 +652,7 @@ class Cleanup(object):
 		pass
 
 
-@command("foreach")
+@command("foreach", disabled=True)
 class Foreach(object):
 	@classmethod
 	def define_arguments(cls, parser):
