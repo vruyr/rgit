@@ -4,7 +4,10 @@ from . import registry, scan, status, ignored
 
 
 async def main(args):
-	opts = _parse_args(args=args)
+	parser, opts = _parse_args(args=args)
+	if opts.command is None:
+		parser.print_usage()
+		return
 	config_path = find_config_file(opts)
 	config = await configuration.load(config_file_path=config_path)
 	handler = registry.get_command_handler(opts.command)
@@ -71,4 +74,4 @@ def _parse_args(args=None):
 
 	opts = parser.parse_args(args)
 
-	return opts
+	return parser, opts
