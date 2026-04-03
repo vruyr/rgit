@@ -1,17 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "rgit"
 version = "0.0.0"
-description = ""
-requires-python = ">=3.14"
-license = {text = "UNLICENSED"}
+description = "A tool to discover and monitor statuses of local git repositories."
+license = "MIT"
+requires-python = ">=3.10"
+readme = "README.md"
+authors = [{name = "Vruyr Gyolchanyan"}]
 dependencies = [
 	"PyYAML>=6.0.1,<7.0.0",
 	"pygit2>=1.19.2,<2.0.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/vruyr/rgit"
+
 [project.scripts]
 rgit = "rgit.__main__:_ssmain"
-
-[build-system]
-requires = ["setuptools>=82"]
-build-backend = "setuptools.build_meta"
