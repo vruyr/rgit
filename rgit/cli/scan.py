@@ -132,7 +132,7 @@ class Scan(object):
 					if opts.skip_gitdirs:
 						try:
 							dirs.remove(".git")
-						except:
+						except ValueError:
 							pass
 					if opts.skip_worktrees:
 						re_add_gitdir = ".git" in dirs
@@ -188,7 +188,7 @@ class Scan(object):
 		def make_path_relative(path):
 			try:
 				return path.relative_to(config_yaml_relative_to)
-			except:
+			except ValueError:
 				return path
 		# This is the resulting object that will be serialized into the output YAML document.
 		config_yaml = {
@@ -318,7 +318,7 @@ class Scan(object):
 		gitdir = repo.gitdir
 		try:
 			gitdir = gitdir.relative_to(pathlib.Path.home())
-		except:
+		except ValueError:
 			pass
 		sys.stdout.write(gitdir.as_posix())
 		if repo.is_worktree_custom():
