@@ -9,3 +9,11 @@ __pycache__/
 /.idea/
 /rgit.egg-info/
 #}}}
+
+#{{{ transient
+# Lock files must be preserved and stored during CI builds, along with other build artifacts,
+# but they should not be committed to version control. This ensures that, if needed, the exact
+# build could be reproduced, but the developers would not be locked to a single version of
+# all dependencies, maximizing the chance of discovering incompatibilities and bugs.
+/uv.lock
+#}}}
