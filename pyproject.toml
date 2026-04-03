@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rgit"
-version = "0.0.1"
+dynamic = ["version"]
 description = "A tool to discover and monitor statuses of local git repositories."
 license = "MIT"
 requires-python = ">=3.11"
@@ -17,6 +17,11 @@ dependencies = [
 
 [project.urls]
 Repository = "https://github.com/vruyr/rgit"
+
+[tool.hatch.version]
+source = "code"
+path = "tools/hatch_build.py"
+expression = "get_version()"
 
 [project.scripts]
 rgit = "rgit.__main__:_ssmain"

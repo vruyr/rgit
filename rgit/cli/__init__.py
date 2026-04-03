@@ -1,6 +1,6 @@
 import argparse, pathlib, sys
 from .. import configuration, constants
-from . import registry, scan, status, ignored
+from . import registry, scan, status, ignored, version
 
 
 async def main(args):
@@ -39,6 +39,13 @@ def _parse_args(args=None):
 		prog=constants.SELF_NAME,
 		description=None,
 		epilog=None
+	)
+
+	parser.add_argument(
+		"-v", "--version",
+		action="version",
+		version=version.Version.get_version(),
+		help=version.Version.short_description(),
 	)
 
 	parser.add_argument(
