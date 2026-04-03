@@ -1,7 +1,6 @@
-import asyncio, subprocess, os, pathlib, re
+import os, pathlib, re, subprocess
 import pygit2
-
-_git_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+from . import _gitcli
 
 
 async def status(repo, *args):
@@ -229,29 +228,10 @@ async def git(
 	if cwd is not None:
 		extra_args.append("-C")
 		extra_args.append(os.fspath(cwd))
-	p = await asyncio.create_subprocess_exec(
+	return await _gitcli.run_async(
 		"git", *extra_args, *args,
-		stdout=subprocess.PIPE,
-		stderr=subprocess.PIPE,
-		stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
-		env=_git_env,
-		encoding=None, # We want bytes
+		cwd=None, stdin=stdin, stderr_ok=stderr_ok, returncode_ok=returncode_ok,
 	)
-	assert isinstance(stdin, (str, bytes, type(None)))
-	if isinstance(stdin, str):
-		stdin = stdin.encode("utf_8")
-	stdout, stderr = await p.communicate(input=stdin)
-	returncode_checker = None
-	if callable(returncode_ok):
-		returncode_checker = returncode_ok
-	else:
-		def assert_returncode(returncode):
-			return returncode == (returncode_ok if returncode_ok is not None else 0)
-		returncode_checker = assert_returncode
-	assert returncode_checker(p.returncode), (repo, args, p.returncode, stderr)
-	if not stderr_ok:
-		assert not stderr, (repo, args, p.returncode, stderr)
-	return stdout.decode("utf_8")
 
 
 
@@ -292,21 +272,6 @@ async def exists(gitdir):
 	return (True, worktree.exists() if worktree is not None else None)
 
 
-def run_sync(*args, cwd=None, encoding="UTF-8", capture_output=True, check=True, rstrip=True):
-	p = subprocess.run(
-		args,
-		cwd=cwd if cwd is not None else pathlib.Path.home(),
-		shell=False,
-		check=check,
-		capture_output=capture_output,
-		encoding="UTF-8",
-	)
-	result = p.stdout
-	if rstrip:
-		result = result.rstrip()
-	return result
-
-
 class Repo(object):
 	__slots__ = (
 		"_gitdir",
@@ -320,7 +285,7 @@ class Repo(object):
 
 		if not self._gitdir.is_dir():
 			try:
-				self._gitdir = pathlib.Path(run_sync(
+				self._gitdir = pathlib.Path(_gitcli.run_sync(
 					"git", "--git-dir", self._gitdir.as_posix(), "rev-parse", "--git-dir"
 				))
 				if not self._gitdir.exists():
@@ -332,11 +297,11 @@ class Repo(object):
 			if self._gitdir.name == ".git":
 				self._worktree = self._gitdir.parent
 			else:
-				if "true" == run_sync("git", "--git-dir", self._gitdir.as_posix(), "config", "--get", "--bool", "core.bare"):
+				if "true" == _gitcli.run_sync("git", "--git-dir", self._gitdir.as_posix(), "config", "--get", "--bool", "core.bare"):
 					self._worktree = None
 				else:
 					try:
-						self._worktree = pathlib.Path(run_sync(
+						self._worktree = pathlib.Path(_gitcli.run_sync(
 							"git", "--git-dir", self._gitdir.as_posix(), "rev-parse", "--show-toplevel"
 						))
 						if not self._worktree.exists():
