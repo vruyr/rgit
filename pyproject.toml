@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rgit"
-version = "0.0.0"
+version = "0.0.1"
 description = "A tool to discover and monitor statuses of local git repositories."
 license = "MIT"
 requires-python = ">=3.11"
