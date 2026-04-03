@@ -6,7 +6,7 @@ from . import registry, scan, status, ignored
 async def main(args):
 	opts = _parse_args(args=args)
 	config_path = find_config_file(opts)
-	config = await configuration.load(config_file_path=pathlib.Path(config_path))
+	config = await configuration.load(config_file_path=config_path)
 	handler = registry.get_command_handler(opts.command)
 	if handler is not None:
 		handler_instance = handler()
@@ -17,7 +17,7 @@ async def main(args):
 
 def find_config_file(opts):
 	if opts.config_path:
-		return opts.config_path
+		return pathlib.Path(opts.config_path)
 
 	candidates = [
 		(pathlib.Path.home() / ("." + constants.SELF_NAME + ".json")),

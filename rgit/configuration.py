@@ -9,11 +9,11 @@ async def load(*, config_file_path):
 
 class FileBasedConfiguration(object):
 	def __init__(self, path):
-		self._path = pathlib.Path(path)
+		self._path = pathlib.Path(path) if path is not None else None
 		self._content = {}
 
 	async def _load(self):
-		if not self._path.exists():
+		if self._path is None or not self._path.exists():
 			return
 		with self._path.open("r") as fo:
 			config = json.load(fo)

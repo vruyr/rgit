@@ -7,7 +7,7 @@ name = "rgit"
 version = "0.0.0"
 description = "A tool to discover and monitor statuses of local git repositories."
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 authors = [{name = "Vruyr Gyolchanyan"}]
 dependencies = [
